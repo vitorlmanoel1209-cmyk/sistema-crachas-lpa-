@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sistema de Crachás, Laudos & Validação - LPA</title>
+  <!-- Firebase SDKs -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-dark: #172554;
+      --primary-light: #3b82f6;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #ffffff; padding: 1rem 1.25rem; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+    .status-cloud { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; background: rgba(255,255,255,0.15); padding: 0.2rem 0.6rem; border-radius: 999px; }
+    .dot-online { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+    nav { background: #ffffff; border-bottom: 1px solid var(--border); display: flex; position: sticky; top: 57px; z-index: 40; overflow-x: auto; }
+    nav button { flex: 1; padding: 0.85rem 0.5rem; border: none; background: none; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; border-bottom: 3px solid transparent; white-space: nowrap; }
+    nav button.active { color: var(--primary); border-bottom-color: var(--primary); background: #f8fafc; }
+    main { flex: 1; max-width: 950px; width: 100%; margin: 0 auto; padding: 1rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .card { background: var(--card-bg); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1rem; }
+    .card-title { font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .form-control { width: 100%; padding: 0.75rem 0.9rem; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; background: #ffffff; }
+    .form-control:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #ffffff; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; }
+    .btn-sm { width: auto; padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+    .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+    th { background: #f8fafc; color: var(--text-muted); font-weight: 700; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover { background: #f8fafc; }
+    
+    /* Crachá Compacto / Reduzido para Restaurante */
+    .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+    .badge-preview { background: #ffffff; border: 2px solid var(--primary); border-radius: 10px; padding: 15px; text-align: center; box-shadow: var(--shadow); page-break-inside: avoid; }
+    .badge-header { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: var(--primary); text-transform: uppercase; margin-bottom: 2px; }
+    .badge-sub { font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px; text-transform: uppercase; }
+    .badge-name { font-size: 15px; font-weight: 800; color: var(--primary-dark); margin: 6px 0 2px 0; }
+    .badge-role { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+    .badge-details { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: left; font-size: 11px; margin-bottom: 10px; }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.9rem; display: none; z-index: 1000; }
+    @media print {
+      body { background: white !important; }
+      nav, header, .btn, .form-group, .card-title, .no-print { display: none !important; }
+      .badge-preview { border: 1px solid #000 !important; box-shadow: none !important; }
+      .badges-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🛡️ LPA - Sistema Integrado</h1>
+    <div class="status-cloud" id="cloud-status"><span class="dot-online" style="background:#f59e0b;"></span> Conectando...</div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" onclick="switchTab('tab-ativos')"><span>👥</span> Gestão de Ativos</button>
+    <button class="nav-btn" onclick="switchTab('tab-laudo')"><span>📝</span> Laudos</button>
+    <button class="nav-btn" onclick="switchTab('tab-cracha')"><span>🎫</span> Crachás Restaurante</button>
+    <button class="nav-btn" onclick="switchTab('tab-validacao')"><span>🔍</span> Validar ID</button>
+  </nav>
+
+  <main>
+    <!-- ABA 1: GESTÃO DE ATIVOS COM IMPORTAÇÃO E BUSCA -->
+    <section id="tab-ativos" class="tab-content active">
+      <div class="card">
+        <h2 class="card-title">👥 Importação e Base de Ativos Oficial</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Cole os dados copiados da planilha oficial (Estabelecimento, Matrícula, Nome, Cargo, Setor, Turno, Situação) ou cadastre manualmente:</p>
+        
+        <div class="form-group">
+          <label>Importação em Bloco (Copiar e Colar colunas do Excel/Planilha):</label>
+          <textarea id="input-lote-ativos" class="form-control" rows="4" placeholder="Cole aqui as linhas da planilha..."></textarea>
+          <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="processarImportacaoPlanilha()">📥 Processar Planilha</button>
+        </div>
+
+        <hr style="margin: 1.5rem 0; border:0; border-top:1px solid var(--border);">
+
+        <h3 class="card-title" style="font-size: 0.95rem;">Verificador Rápido de Status</h3>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <input type="text" id="input-busca-colab" class="form-control" placeholder="Digite o Nome ou Matrícula para verificar..." oninput="verificarStatusColaboradorBusca()" />
+        </div>
+        <div id="alerta-status-busca"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size: 0.95rem;">📋 Colaboradores Registrados na Base</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Matrícula</th>
+                <th>Nome</th>
+                <th>Cargo / Setor</th>
+                <th>Situação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-ativos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: LAUDOS COM AS 4 CATEGORIAS E VALIDADE DE 1 ANO -->
+    <section id="tab-laudo" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">📝 Registro de Laudos (Validade: 1 Ano)</h2>
+        <form onsubmit="salvarLaudo(event)">
+          <div class="form-group">
+            <label>Selecione ou Digite o Colaborador:</label>
+            <select id="laudo-colab" class="form-control" onchange="preencherDadosLaudo()"></select>
+          </div>
+          <div class="form-group">
+            <label>Dados Cadastrais Recuperados:</label>
+            <input type="text" id="laudo-doc" class="form-control" disabled style="background:#f1f5f9;" />
+          </div>
+          <div id="alerta-ativo-laudo" style="margin-bottom: 1rem;"></div>
+          <div class="form-group">
+            <label>Tipo de Laudo (Obrigatório):</label>
+            <select id="laudo-tipo" class="form-control">
+              <option value="RESTRIÇÕES MÉDICAS">RESTRIÇÕES MÉDICAS</option>
+              <option value="RESTAURANTE">RESTAURANTE</option>
+              <option value="PROTETOR PLUG">PROTETOR PLUG</option>
+              <option value="BOTA ULTRA LEVE">BOTA ULTRA LEVE</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Observações Técnicas:</label>
+            <input type="text" id="laudo-obs" class="form-control" placeholder="Detalhes técnicos..." />
+          </div>
+          <button type="submit" class="btn btn-primary">💾 Salvar Laudo</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size: 0.95rem;">📋 Laudos Emitidos por Categoria</h3>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="filtrarTabelaLaudos('TODOS', this)">Todos</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarTabelaLaudos('RESTRIÇÕES MÉDICAS', this)">Restrições Médicas</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarTabelaLaudos('RESTAURANTE', this)">Restaurante</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarTabelaLaudos('PROTETOR PLUG', this)">Protetor Plug</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarTabelaLaudos('BOTA ULTRA LEVE', this)">Bota Ultra Leve</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Emissão</th>
+                <th>Nome / Matrícula</th>
+                <th>Tipo de Laudo</th>
+                <th>Vencimento (1 Ano)</th>
+                <th>Status Colaborador</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-laudos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: CRACHÁS EXCLUSIVOS PARA RESTAURANTE -->
+    <section id="tab-cracha" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">🎫 Credenciais de Liberação - Restaurante</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Crachás gerados automaticamente e restritos exclusivamente aos laudos da categoria <b>RESTAURANTE</b>.</p>
+        
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <input type="text" id="input-filtro-crachas" class="form-control" placeholder="Filtrar por nome ou matrícula..." oninput="renderizarCrachasRestaurante()" />
+          <button class="btn btn-primary btn-sm no-print" onclick="window.print()">🖨️ Imprimir Crachás</button>
+        </div>
+      </div>
+
+      <div class="card" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+        <div id="badges-container" class="badges-grid"></div>
+      </div>
+    </section>
+
+    <!-- ABA 4: VALIDAÇÃO DE ID -->
+    <section id="tab-validacao" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">🔍 Validação de ID de Credencial</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Digite ou escaneie o ID exclusivo da credencial para confirmar a autenticidade.</p>
+        <div class="form-group">
+          <label>ID de Validação:</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="text" id="input-busca-id" class="form-control" placeholder="Digite o ID único..." />
+            <button class="btn btn-primary btn-sm" onclick="verificarIdUnico()">Verificar</button>
+          </div>
+        </div>
+        <div id="resultado-validacao" style="margin-top: 1rem;"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCg_u3JBtcIzBJOqbPyIEPs4o-R6oVkVYE",
+      authDomain: "sistema-crachas-lpa.firebaseapp.com",
+      databaseURL: "https://sistema-crachas-lpa-default-rtdb.firebaseio.com",
+      projectId: "sistema-crachas-lpa",
+      storageBucket: "sistema-crachas-lpa.firebasestorage.app",
+      messagingSenderId: "294647738873",
+      appId: "1:294647738873:web:fd90d1104ccfee2d508d28"
+    };
+
+    let db = null;
+    let colaboradores = [];
+    let laudos = [];
+    let filtroLaudoAtual = "TODOS";
+
+    const COLAB_FALLBACK = [
+      { matricula: "101", nome: "Carlos Eduardo Silva", cargo: "Operador de Produção", setor: "Produção", situacao: "ATIVO" },
+      { matricula: "102", nome: "Ana Paula Souza", cargo: "Analista de Qualidade", setor: "Laboratório", situacao: "ATIVO" },
+      { matricula: "103", nome: "Marcos Lima", cargo: "Auxiliar de Expedição", setor: "Logística", situacao: "INATIVO" }
+    ];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initFirebase();
+    });
+
+    function initFirebase() {
+      if (typeof firebase === 'undefined') {
+        setTimeout(initFirebase, 100);
+        return;
+      }
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        document.getElementById("cloud-status").innerHTML = '<span class="dot-online"></span> Nuvem Conectada';
+
+        db.ref("lpa_colab").on("value", snapshot => {
+          const data = snapshot.val();
+          colaboradores = data ? (Array.isArray(data) ? data : Object.values(data)) : COLAB_FALLBACK;
+          if (!data) db.ref("lpa_colab").set(COLAB_FALLBACK);
+          atualizarTelas();
+        });
+
+        db.ref("lpa_laudos").on("value", snapshot => {
+          const data = snapshot.val();
+          laudos = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+          renderizarTabelaLaudos();
+          renderizarCrachasRestaurante();
+        });
+      } catch(e) {
+        colaboradores = COLAB_FALLBACK;
+        atualizarTelas();
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.currentTarget.classList.add('active');
+    }
+
+    function processarImportacaoPlanilha() {
+      const texto = document.getElementById("input-lote-ativos").value.trim();
+      if (!texto) { alert("Cole os dados da planilha primeiro!"); return; }
+      
+      const linhas = texto.split("\n");
+      let novos = [...colaboradores];
+
+      linhas.forEach(linha => {
+        const partes = linha.split("\t");
+        if (partes.length >= 3) {
+          const matricula = partes[1]?.trim() || Math.floor(Math.random()*1000).toString();
+          const nome = partes[2]?.trim() || partes[0]?.trim();
+          const cargo = partes[3]?.trim() || "Operacional";
+          const setor = partes[4]?.trim() || "Geral";
+          const situacao = (partes[6] || partes[5] || "ATIVO").toUpperCase().includes("INATIVO") ? "INATIVO" : "ATIVO";
+
+          if (nome) {
+            const idx = novos.findIndex(c => c.matricula === matricula || c.nome.toLowerCase() === nome.toLowerCase());
+            if (idx >= 0) {
+              novos[idx] = { matricula, nome, cargo, setor, situacao };
+            } else {
+              novos.push({ matricula, nome, cargo, setor, situacao });
+            }
+          }
+        }
+      });
+
+      colaboradores = novos;
+      if (db) db.ref("lpa_colab").set(colaboradores);
+      document.getElementById("input-lote-ativos").value = "";
+      mostrarToast("📥 Planilha de ativos importada com sucesso!");
+      atualizarTelas();
+    }
+
+    function verificarStatusColaboradorBusca() {
+      const termo = document.getElementById("input-busca-colab").value.trim().toLowerCase();
+      const divAlerta = document.getElementById("alerta-status-busca");
+      if (!termo) { divAlerta.innerHTML = ""; return; }
+
+      const c = colaboradores.find(item => item.nome.toLowerCase().includes(termo) || item.matricula === termo);
+      if (!c) {
+        divAlerta.innerHTML = `<div style="background:#fee2e2; color:#991b1b; padding:0.75rem; border-radius:6px; border:1px solid #ef4444;">❌ <b>INATIVO / NÃO ENCONTRADO:</b> Este colaborador não consta na base ativa da empresa.</div>`;
+      } else if (c.situacao === "INATIVO") {
+        divAlerta.innerHTML = `<div style="background:#fee2e2; color:#991b1b; padding:0.75rem; border-radius:6px; border:1px solid #ef4444;">⚠️ <b>COLABORADOR INATIVO:</b> ${c.nome} (Mat: ${c.matricula}) encontra-se com status INATIVO.</div>`;
+      } else {
+        divAlerta.innerHTML = `<div style="background:#d1fae5; color:#065f46; padding:0.75rem; border-radius:6px; border:1px solid #10b981;">✅ <b>ATIVO:</b> ${c.nome} - Cargo: ${c.cargo || 'N/A'} (${c.setor || 'N/A'})</div>`;
+      }
+    }
+
+    function atualizarTelas() {
+      const selectLaudo = document.getElementById("laudo-colab");
+      if(selectLaudo) {
+        selectLaudo.innerHTML = colaboradores.map(c => `<option value="${c.matricula}">${c.nome} (Mat: ${c.matricula}) - [${c.situacao || 'ATIVO'}]</option>`).join('');
+      }
+      preencherDadosLaudo();
+      renderizarTabelaAtivos();
+    }
+
+    function renderizarTabelaAtivos() {
+      const tbody = document.getElementById("tbody-ativos");
+      if(!tbody) return;
+      tbody.innerHTML = colaboradores.map(c => `
+        <tr>
+          <td><b>${c.matricula}</b></td>
+          <td>${c.nome}</td>
+          <td>${c.cargo || 'N/A'} / ${c.setor || 'N/A'}</td>
+          <td><span style="color:${(c.situacao||'ATIVO')==='ATIVO'?'#10b981':'#ef4444'}; font-weight:bold;">${c.situacao || 'ATIVO'}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function preencherDadosLaudo() {
+      const mat = document.getElementById("laudo-colab").value;
+      const c = colaboradores.find(item => item.matricula === mat);
+      const divAlerta = document.getElementById("alerta-ativo-laudo");
+      if (!c) return;
+
+      document.getElementById("laudo-doc").value = `Mat: ${c.matricula} | Cargo: ${c.cargo || 'N/A'} | Setor: ${c.setor || 'N/A'} | Situação: ${c.situacao || 'ATIVO'}`;
+      
+      if (c.situacao === "INATIVO") {
+        divAlerta.innerHTML = `<div style="background:#fee2e2; color:#991b1b; padding:0.5rem; border-radius:6px; font-size:0.8rem;">⚠️ Atenção: Colaborador com cadastro <b>INATIVO</b> na base.</div>`;
+      } else {
+        divAlerta.innerHTML = `<div style="background:#d1fae5; color:#065f46; padding:0.5rem; border-radius:6px; font-size:0.8rem;">✅ Colaborador <b>ATIVO</b> na base corporativa.</div>`;
+      }
+    }
+
+    function gerarIdUnicoAleatorio(matricula) {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let rand = "";
+      for(let i=0; i<4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      return `LPA-2026-${matricula}-${rand}`;
+    }
+
+    function salvarLaudo(e) {
+      e.preventDefault();
+      const mat = document.getElementById("laudo-colab").value;
+      const c = colaboradores.find(item => item.matricula === mat);
+      if(!c) return;
+      
+      const dataEmissao = new Date();
+      const dataVencimento = new Date();
+      dataVencimento.setFullYear(dataEmissao.getFullYear() + 1);
+
+      const tipoLaudo = document.getElementById("laudo-tipo").value;
+
+      const novo = {
+        idUnico: gerarIdUnicoAleatorio(c.matricula),
+        data: dataEmissao.toLocaleDateString("pt-BR"),
+        vencimento: dataVencimento.toLocaleDateString("pt-BR"),
+        nome: c.nome,
+        matricula: c.matricula,
+        tipo: tipoLaudo,
+        situacaoColab: c.situacao || "ATIVO",
+        obs: document.getElementById("laudo-obs").value || "N/A"
+      };
+
+      laudos.unshift(novo);
+      if (db) db.ref("lpa_laudos").set(laudos);
+      mostrarToast("✅ Laudo registrado com sucesso!");
+    }
+
+    function filtrarTabelaLaudos(tipo, btn) {
+      filtroLaudoAtual = tipo;
+      document.querySelectorAll('#tab-laudo .btn-sm').forEach(b => b.className = "btn btn-sm btn-secondary");
+      if(btn) btn.className = "btn btn-sm btn-primary";
+      renderizarTabelaLaudos();
+    }
+
+    function renderizarTabelaLaudos() {
+      const tbody = document.getElementById("tbody-laudos");
+      if(!tbody) return;
+
+      const filtrados = filtroLaudoAtual === "TODOS" ? laudos : laudos.filter(l => l.tipo === filtroLaudoAtual);
+
+      tbody.innerHTML = filtrados.map(l => `
+        <tr>
+          <td>${l.data}</td>
+          <td><b>${l.nome}</b> (Mat: ${l.matricula})</td>
+          <td><span style="background:#e0f2fe; color:#0369a1; padding:0.2rem 0.5rem; border-radius:4px; font-weight:bold; font-size:0.75rem;">${l.tipo}</span></td>
+          <td><b style="color:var(--primary);">${l.vencimento}</b></td>
+          <td><span style="color:${(l.situacaoColab||'ATIVO')==='ATIVO'?'#10b981':'#ef4444'}; font-weight:bold;">${l.situacaoColab || 'ATIVO'}</span></td>
+        </tr>
+      `).join('') || `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhum laudo encontrado para esta categoria.</td></tr>`;
+    }
+
+    function renderizarCrachasRestaurante() {
+      const container = document.getElementById("badges-container");
+      const filtro = document.getElementById("input-filtro-crachas").value.toLowerCase();
+      if(!container) return;
+
+      // Filtra estritamente apenas laudos da categoria RESTAURANTE
+      const crachasRestaurante = laudos.filter(l => l.tipo === "RESTAURANTE" && (l.nome.toLowerCase().includes(filtro) || l.matricula.includes(filtro)));
+
+      container.innerHTML = crachasRestaurante.map(c => `
+        <div class="badge-preview">
+          <div class="badge-header">LATICÍNIOS PORTO ALEGRE</div>
+          <div class="badge-sub">CREDENCIAL - RESTAURANTE</div>
+          <div class="badge-name">${c.nome}</div>
+          <div class="badge-role">Matrícula: ${c.matricula}</div>
+          <div class="badge-details">
+            <b>ID:</b> <span style="color:var(--primary);">${c.idUnico}</span><br>
+            <b>Validade:</b> ${c.vencimento}
+          </div>
+          <div style="font-size:8px; color:var(--text-muted); border-top:1px dashed var(--border); padding-top:4px;">
+            Apresentação obrigatória no refeitório.
+          </div>
+        </div>
+      `).join('') || `<div style="grid-column: 1 / -1; text-align:center; color:var(--text-muted); padding:2rem;">Nenhum crachá de Restaurante emitido ou encontrado.</div>`;
+    }
+
+    function verificarIdUnico() {
+      const idBusca = document.getElementById("input-busca-id").value.trim();
+      const resDiv = document.getElementById("resultado-validacao");
+      if (!idBusca) return;
+
+      const l = laudos.find(item => item.idUnico === idBusca);
+      if (l) {
+        resDiv.innerHTML = `
+          <div style="background:#d1fae5; color:#065f46; padding:1rem; border-radius:8px; border:1px solid #10b981;">
+            ✅ <b>Credencial Válida e Autêntica!</b><br>
+            <b>Colaborador:</b> ${l.nome}<br>
+            <b>Matrícula:</b> ${l.matricula}<br>
+            <b>Tipo Credencial:</b> ${l.tipo}<br>
+            <b>Vencimento:</b> ${l.vencimento}<br>
+            <b>Situação do Colaborador:</b> ${l.situacaoColab}
+          </div>
+        `;
+      } else {
+        resDiv.innerHTML = `
+          <div style="background:#fee2e2; color:#991b1b; padding:1rem; border-radius:8px; border:1px solid #ef4444;">
+            ❌ <b>ID Não Encontrado ou Inválido!</b> Verifique o código digitado.
+          </div>
+        `;
+      }
+    }
+
+    function mostrarToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => t.style.display = "none", 2500);
+    }
+  </script>
+</body>
+</html>
