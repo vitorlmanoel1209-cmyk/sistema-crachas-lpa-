@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Sistema de Crachás & Laudos - LPA</title>
+  <title>Sistema de Crachás, Laudos & Validação - LPA</title>
   <!-- Firebase SDKs -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -29,10 +29,10 @@
     header h1 { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
     .status-cloud { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; background: rgba(255,255,255,0.15); padding: 0.2rem 0.6rem; border-radius: 999px; }
     .dot-online { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
-    nav { background: #ffffff; border-bottom: 1px solid var(--border); display: flex; position: sticky; top: 57px; z-index: 40; }
-    nav button { flex: 1; padding: 0.85rem 0.25rem; border: none; background: none; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; border-bottom: 3px solid transparent; }
+    nav { background: #ffffff; border-bottom: 1px solid var(--border); display: flex; position: sticky; top: 57px; z-index: 40; overflow-x: auto; }
+    nav button { flex: 1; padding: 0.85rem 0.5rem; border: none; background: none; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; border-bottom: 3px solid transparent; white-space: nowrap; }
     nav button.active { color: var(--primary); border-bottom-color: var(--primary); background: #f8fafc; }
-    main { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1rem; }
+    main { flex: 1; max-width: 950px; width: 100%; margin: 0 auto; padding: 1rem; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .card { background: var(--card-bg); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1rem; }
@@ -50,10 +50,10 @@
     th { background: #f8fafc; color: var(--text-muted); font-weight: 700; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
     td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:hover { background: #f8fafc; }
-    /* Crachá Executivo */
+    /* Crachá Executivo Atualizado */
     .badge-preview { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 25px; text-align: center; max-width: 380px; margin: 0 auto; box-shadow: var(--shadow); }
-    .badge-header { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--primary); text-transform: uppercase; margin-bottom: 4px; }
-    .badge-sub { font-size: 10px; color: var(--text-muted); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .badge-header { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--primary); text-transform: uppercase; margin-bottom: 4px; }
+    .badge-sub { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; }
     .badge-name { font-size: 20px; font-weight: 800; color: var(--primary-dark); margin: 10px 0 4px 0; }
     .badge-role { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 15px; }
     .badge-details { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: left; font-size: 12px; margin-bottom: 15px; }
@@ -68,21 +68,28 @@
 <body>
 
   <header>
-    <h1>🛡️ Sistema LPA - Crachás & Laudos</h1>
+    <h1>🛡️ LPA - Sistema Integrado</h1>
     <div class="status-cloud" id="cloud-status"><span class="dot-online" style="background:#f59e0b;"></span> Conectando...</div>
   </header>
 
   <nav>
-    <button class="nav-btn active" onclick="switchTab('tab-cracha')"><span>🎫</span> Emitir Crachá</button>
-    <button class="nav-btn" onclick="switchTab('tab-laudo')"><span>📝</span> Lançar Laudo</button>
-    <button class="nav-btn" onclick="switchTab('tab-ativos')"><span>👥</span> Ativos & Inativos</button>
+    <button class="nav-btn active" onclick="switchTab('tab-cracha')"><span>🎫</span> Crachás</button>
+    <button class="nav-btn" onclick="switchTab('tab-validacao')"><span>🔍</span> Validar ID</button>
+    <button class="nav-btn" onclick="switchTab('tab-laudo')"><span>📝</span> Laudos</button>
+    <button class="nav-btn" onclick="switchTab('tab-ativos')"><span>👥</span> Gestão de Ativos</button>
   </nav>
 
   <main>
-    <!-- ABA 1: CRACHÁS -->
+    <!-- ABA 1: CRACHÁS COM ABAS POR CATEGORIA -->
     <section id="tab-cracha" class="tab-content active">
       <div class="card">
-        <h2 class="card-title">🎫 Emissão de Crachá com ID Único</h2>
+        <h2 class="card-title">🎫 Emissão de Credencial de Liberação</h2>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <button class="btn btn-sm btn-primary" onclick="filtrarCategoria('Todos', this)" id="btn-cat-todos">Todos</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Restaurante', this)">🍽️ Restaurante</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Protetor Auricular Plug', this)">🛡️ Protetor Auricular</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Bota Ultraleve', this)">🥾 Bota Ultraleve</button>
+        </div>
         <div class="form-group">
           <label>Selecione o Colaborador:</label>
           <select id="select-colaborador" class="form-control" onchange="carregarCrachaColaborador()"></select>
@@ -92,15 +99,31 @@
       <div class="card">
         <div id="badge-container"></div>
         <div style="margin-top: 1rem; text-align: center;">
-          <button class="btn btn-primary btn-sm" onclick="window.print()">🖨️ Imprimir / Salvar Crachá (PDF)</button>
+          <button class="btn btn-primary btn-sm" onclick="window.print()">🖨️ Imprimir / Salvar Credencial (PDF)</button>
         </div>
       </div>
     </section>
 
-    <!-- ABA 2: LAUDOS -->
+    <!-- ABA 2: VALIDAÇÃO DE ID -->
+    <section id="tab-validacao" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">🔍 Validação de ID de Credencial</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Digite ou escaneie o ID exclusivo da credencial para confirmar a autenticidade no sistema.</p>
+        <div class="form-group">
+          <label>ID de Validação (Ex: LPA-2026-101-A9F2):</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="text" id="input-busca-id" class="form-control" placeholder="Digite o ID único..." />
+            <button class="btn btn-primary btn-sm" onclick="verificarIdUnico()">Verificar</button>
+          </div>
+        </div>
+        <div id="resultado-validacao" style="margin-top: 1rem;"></div>
+      </div>
+    </section>
+
+    <!-- ABA 3: LAUDOS COM TIPOS E VENCIMENTO DE 1 ANO -->
     <section id="tab-laudo" class="tab-content">
       <div class="card">
-        <h2 class="card-title">📝 Registro de Laudos</h2>
+        <h2 class="card-title">📝 Registro de Laudos (Vencimento 1 Ano)</h2>
         <form onsubmit="salvarLaudo(event)">
           <div class="form-group">
             <label>Colaborador:</label>
@@ -111,7 +134,15 @@
             <input type="text" id="laudo-doc" class="form-control" disabled />
           </div>
           <div class="form-group">
-            <label>Status do Laudo:</label>
+            <label>Tipo de Laudo:</label>
+            <select id="laudo-tipo" class="form-control">
+              <option value="Laudo de Admissão / Periódico">Laudo de Admissão / Periódico</option>
+              <option value="Laudo de Ergonomia & Saúde">Laudo de Ergonomia & Saúde</option>
+              <option value="Laudo Técnico Especializado">Laudo Técnico Especializado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status:</label>
             <select id="laudo-status" class="form-control">
               <option value="Aprovado">Aprovado</option>
               <option value="Pendente">Pendente</option>
@@ -120,23 +151,23 @@
           </div>
           <div class="form-group">
             <label>Observações Técnicas:</label>
-            <input type="text" id="laudo-obs" class="form-control" placeholder="Ex: Exame periódico realizado..." />
+            <input type="text" id="laudo-obs" class="form-control" placeholder="Detalhes do laudo..." />
           </div>
-          <button type="submit" class="btn btn-primary">💾 Salvar Laudo na Nuvem</button>
+          <button type="submit" class="btn btn-primary">💾 Salvar Laudo (Validade: 1 Ano)</button>
         </form>
       </div>
 
       <div class="card">
-        <h3 class="card-title" style="font-size: 0.95rem;">📋 Laudos Sincronizados</h3>
+        <h3 class="card-title" style="font-size: 0.95rem;">📋 Laudos & Vencimentos</h3>
         <div class="table-container">
           <table>
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Nome</th>
-                <th>Matrícula</th>
+                <th>Emissão</th>
+                <th>Nome / Matrícula</th>
+                <th>Tipo de Laudo</th>
+                <th>Vencimento (1 Ano)</th>
                 <th>Status</th>
-                <th>Obs</th>
               </tr>
             </thead>
             <tbody id="tbody-laudos"></tbody>
@@ -145,22 +176,30 @@
       </div>
     </section>
 
-    <!-- ABA 3: ATIVOS E INATIVOS -->
+    <!-- ABA 4: GESTÃO DE ATIVOS VIA PLANILHA -->
     <section id="tab-ativos" class="tab-content">
       <div class="card">
-        <h2 class="card-title">👥 Gestão de Ativos & Inativos</h2>
+        <h2 class="card-title">👥 Gestão de Ativos (Planilha & Cadastro)</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Adicione colaboradores manualmente ou gerencie por categoria de liberação.</p>
+        
         <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
           <input type="text" id="novo-nome" class="form-control" placeholder="Nome Completo" style="flex:2;" />
-          <input type="text" id="novo-cargo" class="form-control" placeholder="Cargo" style="flex:1;" />
+          <input type="text" id="novo-matricula" class="form-control" placeholder="Matrícula" style="flex:1;" />
+          <select id="novo-categoria" class="form-control" style="flex:1;">
+            <option value="Restaurante">Restaurante</option>
+            <option value="Protetor Auricular Plug">Protetor Auricular</option>
+            <option value="Bota Ultraleve">Bota Ultraleve</option>
+          </select>
           <button class="btn btn-primary btn-sm" onclick="adicionarColaborador()" style="flex:1;">➕ Adicionar</button>
         </div>
+
         <div class="table-container">
           <table>
             <thead>
               <tr>
                 <th>Matrícula</th>
                 <th>Nome</th>
-                <th>Cargo</th>
+                <th>Categoria</th>
                 <th>Status</th>
                 <th>Ação</th>
               </tr>
@@ -176,19 +215,24 @@
 
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyBUeDzLWEkUStY9tjszFMyXC0IFzkvNG0M",
-      authDomain: "estoque-sesmt.firebaseapp.com",
-      databaseURL: "https://estoque-sesmt-default-rtdb.firebaseio.com",
-      projectId: "estoque-sesmt"
+      apiKey: "AIzaSyCg_u3JBtcIzBJOqbPyIEPs4o-R6oVkVYE",
+      authDomain: "sistema-crachas-lpa.firebaseapp.com",
+      databaseURL: "https://sistema-crachas-lpa-default-rtdb.firebaseio.com",
+      projectId: "sistema-crachas-lpa",
+      storageBucket: "sistema-crachas-lpa.firebasestorage.app",
+      messagingSenderId: "294647738873",
+      appId: "1:294647738873:web:fd90d1104ccfee2d508d28"
     };
 
     let db = null;
     let colaboradores = [];
     let laudos = [];
+    let categoriaAtual = "Todos";
 
     const COLAB_FALLBACK = [
-      { matricula: "101", nome: "Carlos Eduardo Silva", cpf: "111.222.333-44", cargo: "Operador de Empilhadeira", setor: "Logística", status: "Ativo" },
-      { matricula: "102", nome: "Ana Paula Souza", cpf: "222.333.444-55", cargo: "Analista de Qualidade", setor: "Laboratório", status: "Ativo" }
+      { matricula: "101", nome: "Carlos Eduardo Silva", cpf: "111.222.333-44", cargo: "Operador", categoria: "Restaurante", status: "Ativo", idUnico: "LPA-2026-101-A9F2" },
+      { matricula: "102", nome: "Ana Paula Souza", cpf: "222.333.444-55", cargo: "Analista", categoria: "Protetor Auricular Plug", status: "Ativo", idUnico: "LPA-2026-102-B8C1" },
+      { matricula: "103", nome: "Marcos Lima", cpf: "333.444.555-66", cargo: "Técnico", categoria: "Bota Ultraleve", status: "Ativo", idUnico: "LPA-2026-103-D4E7" }
     ];
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -230,38 +274,90 @@
       event.currentTarget.classList.add('active');
     }
 
+    function filtrarCategoria(cat, btn) {
+      categoriaAtual = cat;
+      document.querySelectorAll('#tab-cracha .btn-sm').forEach(b => {
+        b.className = "btn btn-sm btn-secondary";
+      });
+      if(btn) btn.className = "btn btn-sm btn-primary";
+      atualizarSelects();
+    }
+
     function atualizarTelas() {
       const selectCracha = document.getElementById("select-colaborador");
       const selectLaudo = document.getElementById("laudo-colab");
-      const options = colaboradores.map(c => `<option value="${c.matricula}">${c.nome} (${c.status})</option>`).join('');
-      if(selectCracha) selectCracha.innerHTML = options;
-      if(selectLaudo) selectLaudo.innerHTML = options;
+      
+      const filtrados = categoriaAtual === "Todos" ? colaboradores : colaboradores.filter(c => c.categoria === categoriaAtual);
+      const options = filtrados.map(c => `<option value="${c.matricula}">${c.nome} (Mat: ${c.matricula})</option>`).join('');
+      
+      if(selectCracha) selectCracha.innerHTML = options || '<option value="">Nenhum nesta categoria</option>';
+      if(selectLaudo) selectLaudo.innerHTML = colaboradores.map(c => `<option value="${c.matricula}">${c.nome}</option>`).join('');
+      
       carregarCrachaColaborador();
       preencherDadosLaudo();
       renderizarTabelaAtivos();
     }
 
+    function gerarIdUnicoAleatorio(matricula) {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let rand = "";
+      for(let i=0; i<4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      return `LPA-2026-${matricula}-${rand}`;
+    }
+
     function carregarCrachaColaborador() {
       const mat = document.getElementById("select-colaborador").value;
       const c = colaboradores.find(item => item.matricula === mat);
-      if (!c) return;
+      const container = document.getElementById("badge-container");
+      if (!c) { container.innerHTML = ""; return; }
 
-      const idVal = `LPA-2026-${c.matricula.padStart(3, '0')}`;
-      document.getElementById("badge-container").innerHTML = `
+      if (!c.idUnico) {
+        c.idUnico = gerarIdUnicoAleatorio(c.matricula);
+        if(db) db.ref("lpa_colab").set(colaboradores);
+      }
+
+      container.innerHTML = `
         <div class="badge-preview">
           <div class="badge-header">LATICÍNIOS PORTO ALEGRE</div>
-          <div class="badge-sub">Credencial Oficial de Identificação 2026</div>
+          <div class="badge-sub">CREDENCIAL DE LIBERAÇÃO</div>
           <div class="badge-name">${c.nome}</div>
-          <div class="badge-role">${c.cargo}</div>
+          <div class="badge-role">Matrícula: ${c.matricula}</div>
           <div class="badge-details">
-            <b>ID de Validação:</b> ${idVal}<br>
-            <b>Matrícula:</b> ${c.matricula}<br>
+            <b>ID de Validação:</b> <span style="color:var(--primary);">${c.idUnico}</span><br>
+            <b>Categoria:</b> ${c.categoria || 'Geral'}<br>
             <b>CPF:</b> ${c.cpf || 'N/A'}<br>
-            <b>Setor:</b> ${c.setor || 'Geral'}
+            <b>Status:</b> ${c.status}
           </div>
-          <div style="font-size:9px; color:var(--text-muted);">Status: <b>${c.status}</b></div>
+          <div style="font-size:9px; color:var(--text-muted); border-top:1px dashed var(--border); padding-top:6px;">
+            Uso obrigatório e sujeito a verificação digital.
+          </div>
         </div>
       `;
+    }
+
+    function verificarIdUnico() {
+      const idBusca = document.getElementById("input-busca-id").value.trim();
+      const resDiv = document.getElementById("resultado-validacao");
+      if (!idBusca) return;
+
+      const c = colaboradores.find(item => item.idUnico === idBusca);
+      if (c) {
+        resDiv.innerHTML = `
+          <div style="background:#d1fae5; color:#065f46; padding:1rem; border-radius:8px; border:1px solid #10b981;">
+            ✅ <b>Credencial Válida e Autêntica!</b><br>
+            <b>Colaborador:</b> ${c.nome}<br>
+            <b>Matrícula:</b> ${c.matricula}<br>
+            <b>Categoria:</b> ${c.categoria}<br>
+            <b>Status Atual:</b> ${c.status}
+          </div>
+        `;
+      } else {
+        resDiv.innerHTML = `
+          <div style="background:#fee2e2; color:#991b1b; padding:1rem; border-radius:8px; border:1px solid #ef4444;">
+            ❌ <b>ID Não Encontrado ou Inválido!</b> Verifique o código digitado.
+          </div>
+        `;
+      }
     }
 
     function preencherDadosLaudo() {
@@ -274,43 +370,58 @@
       e.preventDefault();
       const mat = document.getElementById("laudo-colab").value;
       const c = colaboradores.find(item => item.matricula === mat);
+      
+      const dataEmissao = new Date();
+      const dataVencimento = new Date();
+      dataVencimento.setFullYear(dataEmissao.getFullYear() + 1);
+
       const novo = {
-        data: new Date().toLocaleDateString("pt-BR"),
+        data: dataEmissao.toLocaleDateString("pt-BR"),
+        vencimento: dataVencimento.toLocaleDateString("pt-BR"),
         nome: c.nome,
         matricula: c.matricula,
+        tipo: document.getElementById("laudo-tipo").value,
         status: document.getElementById("laudo-status").value,
         obs: document.getElementById("laudo-obs").value || "N/A"
       };
       laudos.unshift(novo);
       if (db) db.ref("lpa_laudos").set(laudos);
-      mostrarToast("✅ Laudo salvo na nuvem!");
+      mostrarToast("✅ Laudo salvo com validade de 1 ano!");
     }
 
     function renderizarTabelaLaudos() {
       const tbody = document.getElementById("tbody-laudos");
       if(!tbody) return;
       tbody.innerHTML = laudos.map(l => `
-        <tr><td>${l.data}</td><td><b>${l.nome}</b></td><td>${l.matricula}</td><td>${l.status}</td><td>${l.obs}</td></tr>
+        <tr>
+          <td>${l.data}</td>
+          <td><b>${l.nome}</b> (Mat: ${l.matricula})</td>
+          <td>${l.tipo}</td>
+          <td><b style="color:var(--primary);">${l.vencimento}</b></td>
+          <td>${l.status}</td>
+        </tr>
       `).join('') || `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhum laudo registrado.</td></tr>`;
     }
 
     function adicionarColaborador() {
       const nome = document.getElementById("novo-nome").value;
-      const cargo = document.getElementById("novo-cargo").value;
-      if (!nome) { alert("Digite o nome"); return; }
+      const mat = document.getElementById("novo-matricula").value;
+      const cat = document.getElementById("novo-categoria").value;
+      if (!nome || !mat) { alert("Preencha nome e matrícula!"); return; }
       
       const novo = {
-        matricula: String(colaboradores.length + 101),
+        matricula: mat,
         nome: nome,
         cpf: "000.000.000-00",
-        cargo: cargo || "Colaborador",
-        setor: "Geral",
-        status: "Ativo"
+        cargo: "Colaborador",
+        categoria: cat,
+        status: "Ativo",
+        idUnico: gerarIdUnicoAleatorio(mat)
       };
       colaboradores.push(novo);
       if (db) db.ref("lpa_colab").set(colaboradores);
       document.getElementById("novo-nome").value = "";
-      document.getElementById("novo-cargo").value = "";
+      document.getElementById("novo-matricula").value = "";
       mostrarToast("➕ Colaborador adicionado na nuvem!");
     }
 
@@ -321,7 +432,7 @@
         <tr>
           <td><b>${c.matricula}</b></td>
           <td>${c.nome}</td>
-          <td>${c.cargo}</td>
+          <td>${c.categoria || 'Geral'}</td>
           <td><span style="color:${c.status==='Ativo'?'#10b981':'#ef4444'}; font-weight:bold;">${c.status}</span></td>
           <td><button class="btn btn-secondary btn-sm" onclick="alternarStatus(${index})">Mudar Status</button></td>
         </tr>
