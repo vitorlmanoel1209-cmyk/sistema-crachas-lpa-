@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sistema de Crachás, Laudos & Validação - LPA</title>
+  <!-- Firebase SDKs -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-dark: #172554;
+      --primary-light: #3b82f6;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #ffffff; padding: 1rem 1.25rem; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+    .status-cloud { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; background: rgba(255,255,255,0.15); padding: 0.2rem 0.6rem; border-radius: 999px; }
+    .dot-online { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+    nav { background: #ffffff; border-bottom: 1px solid var(--border); display: flex; position: sticky; top: 57px; z-index: 40; overflow-x: auto; }
+    nav button { flex: 1; padding: 0.85rem 0.5rem; border: none; background: none; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; border-bottom: 3px solid transparent; white-space: nowrap; }
+    nav button.active { color: var(--primary); border-bottom-color: var(--primary); background: #f8fafc; }
+    main { flex: 1; max-width: 950px; width: 100%; margin: 0 auto; padding: 1rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .card { background: var(--card-bg); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1rem; }
+    .card-title { font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .form-control { width: 100%; padding: 0.75rem 0.9rem; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; background: #ffffff; }
+    .form-control:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #ffffff; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; }
+    .btn-sm { width: auto; padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+    .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+    th { background: #f8fafc; color: var(--text-muted); font-weight: 700; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover { background: #f8fafc; }
+    /* Crachá Executivo Atualizado */
+    .badge-preview { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border: 2px solid var(--primary); border-radius: 16px; padding: 25px; text-align: center; max-width: 380px; margin: 0 auto; box-shadow: var(--shadow); }
+    .badge-header { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--primary); text-transform: uppercase; margin-bottom: 4px; }
+    .badge-sub { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; }
+    .badge-name { font-size: 20px; font-weight: 800; color: var(--primary-dark); margin: 10px 0 4px 0; }
+    .badge-role { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 15px; }
+    .badge-details { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: left; font-size: 12px; margin-bottom: 15px; }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.9rem; display: none; z-index: 1000; }
+    @media print {
+      body { background: white !important; }
+      nav, header, .btn, .form-group, .card-title { display: none !important; }
+      .badge-preview { border: 2px solid #000 !important; box-shadow: none !important; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🛡️ LPA - Sistema Integrado</h1>
+    <div class="status-cloud" id="cloud-status"><span class="dot-online" style="background:#f59e0b;"></span> Conectando...</div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" onclick="switchTab('tab-cracha')"><span>🎫</span> Crachás</button>
+    <button class="nav-btn" onclick="switchTab('tab-validacao')"><span>🔍</span> Validar ID</button>
+    <button class="nav-btn" onclick="switchTab('tab-laudo')"><span>📝</span> Laudos</button>
+    <button class="nav-btn" onclick="switchTab('tab-ativos')"><span>👥</span> Gestão de Ativos</button>
+  </nav>
+
+  <main>
+    <!-- ABA 1: CRACHÁS COM ABAS POR CATEGORIA -->
+    <section id="tab-cracha" class="tab-content active">
+      <div class="card">
+        <h2 class="card-title">🎫 Emissão de Credencial de Liberação</h2>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+          <button class="btn btn-sm btn-primary" onclick="filtrarCategoria('Todos', this)" id="btn-cat-todos">Todos</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Restaurante', this)">🍽️ Restaurante</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Protetor Auricular Plug', this)">🛡️ Protetor Auricular</button>
+          <button class="btn btn-sm btn-secondary" onclick="filtrarCategoria('Bota Ultraleve', this)">🥾 Bota Ultraleve</button>
+        </div>
+        <div class="form-group">
+          <label>Selecione o Colaborador:</label>
+          <select id="select-colaborador" class="form-control" onchange="carregarCrachaColaborador()"></select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="badge-container"></div>
+        <div style="margin-top: 1rem; text-align: center;">
+          <button class="btn btn-primary btn-sm" onclick="window.print()">🖨️ Imprimir / Salvar Credencial (PDF)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: VALIDAÇÃO DE ID -->
+    <section id="tab-validacao" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">🔍 Validação de ID de Credencial</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Digite ou escaneie o ID exclusivo da credencial para confirmar a autenticidade no sistema.</p>
+        <div class="form-group">
+          <label>ID de Validação (Ex: LPA-2026-101-A9F2):</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="text" id="input-busca-id" class="form-control" placeholder="Digite o ID único..." />
+            <button class="btn btn-primary btn-sm" onclick="verificarIdUnico()">Verificar</button>
+          </div>
+        </div>
+        <div id="resultado-validacao" style="margin-top: 1rem;"></div>
+      </div>
+    </section>
+
+    <!-- ABA 3: LAUDOS COM TIPOS E VENCIMENTO DE 1 ANO -->
+    <section id="tab-laudo" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">📝 Registro de Laudos (Vencimento 1 Ano)</h2>
+        <form onsubmit="salvarLaudo(event)">
+          <div class="form-group">
+            <label>Colaborador:</label>
+            <select id="laudo-colab" class="form-control" onchange="preencherDadosLaudo()"></select>
+          </div>
+          <div class="form-group">
+            <label>Matrícula / CPF:</label>
+            <input type="text" id="laudo-doc" class="form-control" disabled />
+          </div>
+          <div class="form-group">
+            <label>Tipo de Laudo:</label>
+            <select id="laudo-tipo" class="form-control">
+              <option value="Laudo de Admissão / Periódico">Laudo de Admissão / Periódico</option>
+              <option value="Laudo de Ergonomia & Saúde">Laudo de Ergonomia & Saúde</option>
+              <option value="Laudo Técnico Especializado">Laudo Técnico Especializado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status:</label>
+            <select id="laudo-status" class="form-control">
+              <option value="Aprovado">Aprovado</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Reprovado">Reprovado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Observações Técnicas:</label>
+            <input type="text" id="laudo-obs" class="form-control" placeholder="Detalhes do laudo..." />
+          </div>
+          <button type="submit" class="btn btn-primary">💾 Salvar Laudo (Validade: 1 Ano)</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size: 0.95rem;">📋 Laudos & Vencimentos</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Emissão</th>
+                <th>Nome / Matrícula</th>
+                <th>Tipo de Laudo</th>
+                <th>Vencimento (1 Ano)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-laudos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 4: GESTÃO DE ATIVOS VIA PLANILHA -->
+    <section id="tab-ativos" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">👥 Gestão de Ativos (Planilha & Cadastro)</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Adicione colaboradores manualmente ou gerencie por categoria de liberação.</p>
+        
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+          <input type="text" id="novo-nome" class="form-control" placeholder="Nome Completo" style="flex:2;" />
+          <input type="text" id="novo-matricula" class="form-control" placeholder="Matrícula" style="flex:1;" />
+          <select id="novo-categoria" class="form-control" style="flex:1;">
+            <option value="Restaurante">Restaurante</option>
+            <option value="Protetor Auricular Plug">Protetor Auricular</option>
+            <option value="Bota Ultraleve">Bota Ultraleve</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="adicionarColaborador()" style="flex:1;">➕ Adicionar</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Matrícula</th>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-ativos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCg_u3JBtcIzBJOqbPyIEPs4o-R6oVkVYE",
+      authDomain: "sistema-crachas-lpa.firebaseapp.com",
+      databaseURL: "https://sistema-crachas-lpa-default-rtdb.firebaseio.com",
+      projectId: "sistema-crachas-lpa",
+      storageBucket: "sistema-crachas-lpa.firebasestorage.app",
+      messagingSenderId: "294647738873",
+      appId: "1:294647738873:web:fd90d1104ccfee2d508d28"
+    };
+
+    let db = null;
+    let colaboradores = [];
+    let laudos = [];
+    let categoriaAtual = "Todos";
+
+    const COLAB_FALLBACK = [
+      { matricula: "101", nome: "Carlos Eduardo Silva", cpf: "111.222.333-44", cargo: "Operador", categoria: "Restaurante", status: "Ativo", idUnico: "LPA-2026-101-A9F2" },
+      { matricula: "102", nome: "Ana Paula Souza", cpf: "222.333.444-55", cargo: "Analista", categoria: "Protetor Auricular Plug", status: "Ativo", idUnico: "LPA-2026-102-B8C1" },
+      { matricula: "103", nome: "Marcos Lima", cpf: "333.444.555-66", cargo: "Técnico", categoria: "Bota Ultraleve", status: "Ativo", idUnico: "LPA-2026-103-D4E7" }
+    ];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initFirebase();
+    });
+
+    function initFirebase() {
+      if (typeof firebase === 'undefined') {
+        setTimeout(initFirebase, 100);
+        return;
+      }
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        document.getElementById("cloud-status").innerHTML = '<span class="dot-online"></span> Nuvem Conectada';
+
+        db.ref("lpa_colab").on("value", snapshot => {
+          const data = snapshot.val();
+          colaboradores = data ? (Array.isArray(data) ? data : Object.values(data)) : COLAB_FALLBACK;
+          if (!data) db.ref("lpa_colab").set(COLAB_FALLBACK);
+          atualizarTelas();
+        });
+
+        db.ref("lpa_laudos").on("value", snapshot => {
+          const data = snapshot.val();
+          laudos = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+          renderizarTabelaLaudos();
+        });
+      } catch(e) {
+        colaboradores = COLAB_FALLBACK;
+        atualizarTelas();
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.currentTarget.classList.add('active');
+    }
+
+    function filtrarCategoria(cat, btn) {
+      categoriaAtual = cat;
+      document.querySelectorAll('#tab-cracha .btn-sm').forEach(b => {
+        b.className = "btn btn-sm btn-secondary";
+      });
+      if(btn) btn.className = "btn btn-sm btn-primary";
+      atualizarSelects();
+    }
+
+    function atualizarTelas() {
+      const selectCracha = document.getElementById("select-colaborador");
+      const selectLaudo = document.getElementById("laudo-colab");
+      
+      const filtrados = categoriaAtual === "Todos" ? colaboradores : colaboradores.filter(c => c.categoria === categoriaAtual);
+      const options = filtrados.map(c => `<option value="${c.matricula}">${c.nome} (Mat: ${c.matricula})</option>`).join('');
+      
+      if(selectCracha) selectCracha.innerHTML = options || '<option value="">Nenhum nesta categoria</option>';
+      if(selectLaudo) selectLaudo.innerHTML = colaboradores.map(c => `<option value="${c.matricula}">${c.nome}</option>`).join('');
+      
+      carregarCrachaColaborador();
+      preencherDadosLaudo();
+      renderizarTabelaAtivos();
+    }
+
+    function gerarIdUnicoAleatorio(matricula) {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let rand = "";
+      for(let i=0; i<4; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      return `LPA-2026-${matricula}-${rand}`;
+    }
+
+    function carregarCrachaColaborador() {
+      const mat = document.getElementById("select-colaborador").value;
+      const c = colaboradores.find(item => item.matricula === mat);
+      const container = document.getElementById("badge-container");
+      if (!c) { container.innerHTML = ""; return; }
+
+      if (!c.idUnico) {
+        c.idUnico = gerarIdUnicoAleatorio(c.matricula);
+        if(db) db.ref("lpa_colab").set(colaboradores);
+      }
+
+      container.innerHTML = `
+        <div class="badge-preview">
+          <div class="badge-header">LATICÍNIOS PORTO ALEGRE</div>
+          <div class="badge-sub">CREDENCIAL DE LIBERAÇÃO</div>
+          <div class="badge-name">${c.nome}</div>
+          <div class="badge-role">Matrícula: ${c.matricula}</div>
+          <div class="badge-details">
+            <b>ID de Validação:</b> <span style="color:var(--primary);">${c.idUnico}</span><br>
+            <b>Categoria:</b> ${c.categoria || 'Geral'}<br>
+            <b>CPF:</b> ${c.cpf || 'N/A'}<br>
+            <b>Status:</b> ${c.status}
+          </div>
+          <div style="font-size:9px; color:var(--text-muted); border-top:1px dashed var(--border); padding-top:6px;">
+            Uso obrigatório e sujeito a verificação digital.
+          </div>
+        </div>
+      `;
+    }
+
+    function verificarIdUnico() {
+      const idBusca = document.getElementById("input-busca-id").value.trim();
+      const resDiv = document.getElementById("resultado-validacao");
+      if (!idBusca) return;
+
+      const c = colaboradores.find(item => item.idUnico === idBusca);
+      if (c) {
+        resDiv.innerHTML = `
+          <div style="background:#d1fae5; color:#065f46; padding:1rem; border-radius:8px; border:1px solid #10b981;">
+            ✅ <b>Credencial Válida e Autêntica!</b><br>
+            <b>Colaborador:</b> ${c.nome}<br>
+            <b>Matrícula:</b> ${c.matricula}<br>
+            <b>Categoria:</b> ${c.categoria}<br>
+            <b>Status Atual:</b> ${c.status}
+          </div>
+        `;
+      } else {
+        resDiv.innerHTML = `
+          <div style="background:#fee2e2; color:#991b1b; padding:1rem; border-radius:8px; border:1px solid #ef4444;">
+            ❌ <b>ID Não Encontrado ou Inválido!</b> Verifique o código digitado.
+          </div>
+        `;
+      }
+    }
+
+    function preencherDadosLaudo() {
+      const mat = document.getElementById("laudo-colab").value;
+      const c = colaboradores.find(item => item.matricula === mat);
+      if (c) document.getElementById("laudo-doc").value = `Mat: ${c.matricula} | CPF: ${c.cpf || 'N/A'}`;
+    }
+
+    function salvarLaudo(e) {
+      e.preventDefault();
+      const mat = document.getElementById("laudo-colab").value;
+      const c = colaboradores.find(item => item.matricula === mat);
+      
+      const dataEmissao = new Date();
+      const dataVencimento = new Date();
+      dataVencimento.setFullYear(dataEmissao.getFullYear() + 1);
+
+      const novo = {
+        data: dataEmissao.toLocaleDateString("pt-BR"),
+        vencimento: dataVencimento.toLocaleDateString("pt-BR"),
+        nome: c.nome,
+        matricula: c.matricula,
+        tipo: document.getElementById("laudo-tipo").value,
+        status: document.getElementById("laudo-status").value,
+        obs: document.getElementById("laudo-obs").value || "N/A"
+      };
+      laudos.unshift(novo);
+      if (db) db.ref("lpa_laudos").set(laudos);
+      mostrarToast("✅ Laudo salvo com validade de 1 ano!");
+    }
+
+    function renderizarTabelaLaudos() {
+      const tbody = document.getElementById("tbody-laudos");
+      if(!tbody) return;
+      tbody.innerHTML = laudos.map(l => `
+        <tr>
+          <td>${l.data}</td>
+          <td><b>${l.nome}</b> (Mat: ${l.matricula})</td>
+          <td>${l.tipo}</td>
+          <td><b style="color:var(--primary);">${l.vencimento}</b></td>
+          <td>${l.status}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhum laudo registrado.</td></tr>`;
+    }
+
+    function adicionarColaborador() {
+      const nome = document.getElementById("novo-nome").value;
+      const mat = document.getElementById("novo-matricula").value;
+      const cat = document.getElementById("novo-categoria").value;
+      if (!nome || !mat) { alert("Preencha nome e matrícula!"); return; }
+      
+      const novo = {
+        matricula: mat,
+        nome: nome,
+        cpf: "000.000.000-00",
+        cargo: "Colaborador",
+        categoria: cat,
+        status: "Ativo",
+        idUnico: gerarIdUnicoAleatorio(mat)
+      };
+      colaboradores.push(novo);
+      if (db) db.ref("lpa_colab").set(colaboradores);
+      document.getElementById("novo-nome").value = "";
+      document.getElementById("novo-matricula").value = "";
+      mostrarToast("➕ Colaborador adicionado na nuvem!");
+    }
+
+    function renderizarTabelaAtivos() {
+      const tbody = document.getElementById("tbody-ativos");
+      if(!tbody) return;
+      tbody.innerHTML = colaboradores.map((c, index) => `
+        <tr>
+          <td><b>${c.matricula}</b></td>
+          <td>${c.nome}</td>
+          <td>${c.categoria || 'Geral'}</td>
+          <td><span style="color:${c.status==='Ativo'?'#10b981':'#ef4444'}; font-weight:bold;">${c.status}</span></td>
+          <td><button class="btn btn-secondary btn-sm" onclick="alternarStatus(${index})">Mudar Status</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function alternarStatus(index) {
+      colaboradores[index].status = colaboradores[index].status === 'Ativo' ? 'Inativo' : 'Ativo';
+      if (db) db.ref("lpa_colab").set(colaboradores);
+      mostrarToast("🔄 Status atualizado na nuvem!");
+    }
+
+    function mostrarToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => t.style.display = "none", 2500);
+    }
+  </script>
+</body>
+</html>
