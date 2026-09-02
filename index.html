@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sistema de Controle de EPIs - SESMT</title>
+  <!-- Firebase SDKs em modo assíncrono não bloqueante -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-dark: #172554;
+      --primary-light: #3b82f6;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #ffffff; padding: 1rem 1.25rem; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+    .status-cloud { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; background: rgba(255,255,255,0.15); padding: 0.2rem 0.6rem; border-radius: 999px; }
+    .dot-online { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+    nav { background: #ffffff; border-bottom: 1px solid var(--border); display: flex; position: sticky; top: 57px; z-index: 40; }
+    nav button { flex: 1; padding: 0.85rem 0.25rem; border: none; background: none; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; border-bottom: 3px solid transparent; }
+    nav button.active { color: var(--primary); border-bottom-color: var(--primary); background: #f8fafc; }
+    .nav-badge { background: var(--warning); color: #000; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 999px; }
+    main { flex: 1; max-width: 900px; width: 100%; margin: 0 auto; padding: 1rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .card { background: var(--card-bg); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1rem; }
+    .card-title { font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .form-control { width: 100%; padding: 0.75rem 0.9rem; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; background: #ffffff; }
+    .form-control:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    .search-box { position: relative; }
+    .search-results { position: absolute; top: 100%; left: 0; right: 0; background: #ffffff; border: 1px solid var(--border); border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: none; }
+    .search-item { padding: 0.75rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 0.9rem; }
+    .search-item:hover { background: #eff6ff; }
+    .search-item-code { font-weight: 700; color: var(--primary); }
+    .search-item-stock { font-size: 0.8rem; color: var(--text-muted); float: right; }
+    .stock-callout { background: #f8fafc; border: 1px dashed var(--primary-light); border-radius: 8px; padding: 0.85rem; margin-top: 0.5rem; display: none; justify-content: space-between; align-items: center; }
+    .stock-callout-val { font-size: 1.25rem; font-weight: 800; color: var(--primary); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #ffffff; }
+    .btn-success { background: var(--accent); color: #ffffff; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; }
+    .btn-sm { width: auto; padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+    .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+    th { background: #f8fafc; color: var(--text-muted); font-weight: 700; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:hover { background: #f8fafc; }
+    .status-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+    .status-pendente { background: #fef3c7; color: #92400e; }
+    .status-baixado { background: #d1fae5; color: #065f46; }
+    .status-critico { background: #fee2e2; color: #991b1b; }
+    .upload-box { border: 2px dashed #cbd5e1; border-radius: var(--radius); padding: 2rem 1rem; text-align: center; background: #f8fafc; cursor: pointer; }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.9rem; display: none; z-index: 1000; }
+    .qr-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🛡️ Controle de EPIs</h1>
+    <div style="display:flex; align-items:center; gap:0.5rem;">
+      <div class="status-cloud" id="cloud-status-text"><span class="dot-online" style="background:#f59e0b;"></span> Conectando...</div>
+      <button id="btn-lock-session" onclick="bloquearSessao()" style="display:none; background:rgba(255,255,255,0.2); border:none; color:#fff; padding:0.25rem 0.6rem; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;">🔒 Sair</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" onclick="switchTab('tab-retirada')"><span>📦</span> Retirar EPI</button>
+    <button class="nav-btn" onclick="switchTab('tab-pendencias')"><span>⚡</span> Fila TOTVS <span id="badge-pendentes" class="nav-badge">0</span></button>
+    <button class="nav-btn" onclick="switchTab('tab-estoque')"><span>📊</span> Saldo Físico</button>
+    <button class="nav-btn" onclick="switchTab('tab-config')"><span>⚙️</span> Base TOTVS</button>
+  </nav>
+
+  <main>
+    <!-- ABA 1: RETIRADA -->
+    <section id="tab-retirada" class="tab-content active">
+      <div class="card">
+        <h2 class="card-title"><span>📝 Registrar Retirada de EPI</span></h2>
+        <form id="form-retirada" onsubmit="salvarRetirada(event)">
+          <div class="form-group">
+            <label>Quem está retirando? (Nome / Matrícula / Setor)</label>
+            <input type="text" id="colaborador" class="form-control" placeholder="Ex: João Silva - Manutenção" required />
+          </div>
+
+          <div class="form-group">
+            <label>Selecionar EPI (Código ou Descrição)</label>
+            <div class="search-box">
+              <input type="text" id="item-search" class="form-control" placeholder="Digite ex: CALCA BEGE ou 07.070..." autocomplete="off" required oninput="filtrarItens(this.value)" />
+              <input type="hidden" id="item-codigo-selected" required />
+              <div id="search-results" class="search-results"></div>
+            </div>
+
+            <div id="stock-callout" class="stock-callout">
+              <div>
+                <span id="callout-desc" style="font-weight: 600; font-size: 0.85rem;"></span><br />
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo Físico Disponível:</span>
+              </div>
+              <div id="callout-saldo" class="stock-callout-val">0</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Quantidade Retirada</label>
+            <input type="number" id="quantidade" class="form-control" min="1" value="1" required />
+          </div>
+
+          <div class="form-group">
+            <label>Observação / Motivo (Opcional)</label>
+            <input type="text" id="motivo" class="form-control" placeholder="Ex: Troca periódica, danificado, admissional..." />
+          </div>
+
+          <button type="submit" class="btn btn-primary">✅ Confirmar Retirada</button>
+        </form>
+      </div>
+
+      <!-- Card do QR Code do Balcão -->
+      <div class="card qr-center">
+        <h3 style="font-size: 1.05rem; margin-bottom: 0.35rem; color: var(--primary);">📌 QR Code do Balcão de Entrega</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+          Aponte a câmera do celular para abrir o sistema diretamente.
+        </p>
+        <div style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:0.85rem; word-break:break-all;" id="qr-url-display"></div>
+        <img id="qr-balcao-img" loading="lazy" decoding="async" src="" alt="QR Code Balcão" style="width:180px; height:180px; border-radius:8px; border:1px solid var(--border); padding:8px; background:#fff; margin-bottom:1rem; display:none;" />
+        <div style="display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; width:100%; max-width:380px;">
+          <button class="btn btn-secondary btn-sm" onclick="imprimirQRCodeBalcao()">
+            🖨️ Imprimir Placa A4
+          </button>
+          <button class="btn btn-sm" style="background:#e2e8f0; color:#1e293b;" onclick="configurarLinkQRCode()">
+            🔗 Alterar Link do QR Code
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: FILA TOTVS -->
+    <section id="tab-pendencias" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h2 class="card-title" style="margin-bottom: 0;">⚡ Pendentes de Baixa no TOTVS</h2>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);" id="count-pendencias">0 itens</span>
+            <button class="btn btn-secondary btn-sm" onclick="imprimirListaPendencias()">
+              🖨️ Imprimir Lista de Pendências
+            </button>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Lance no TOTVS e clique em <strong>OK</strong> para confirmar a baixa contábil.
+        </p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Código</th>
+                <th>Descrição do EPI</th>
+                <th>Colaborador</th>
+                <th>Qtd</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-pendencias"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size: 0.95rem;">📜 Histórico de Baixados no TOTVS</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Data Retirada</th>
+                <th>Código</th>
+                <th>EPI</th>
+                <th>Colaborador</th>
+                <th>Qtd</th>
+                <th>Data Baixa</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-historico"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: SALDO FÍSICO -->
+    <section id="tab-estoque" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h2 class="card-title" style="margin-bottom: 0;">📊 Saldo Físico vs Saldo TOTVS</h2>
+          <button class="btn btn-secondary btn-sm" onclick="imprimirInventarioEstoque()">
+            🖨️ Imprimir Inventário Físico
+          </button>
+        </div>
+        <div class="form-group">
+          <input type="text" id="filtro-estoque" class="form-control" placeholder="🔍 Filtrar por código ou descrição..." oninput="renderizarEstoque()" />
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Descrição Item</th>
+                <th>Un</th>
+                <th>Saldo TOTVS</th>
+                <th>Pendentes</th>
+                <th>SALDO FÍSICO</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-estoque"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 4: CONFIGURAÇÕES -->
+    <section id="tab-config" class="tab-content">
+      <div class="card">
+        <h2 class="card-title">⚙️ Atualizar Base do TOTVS</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Selecione o relatório <strong>CE0919</strong> do TOTVS (.xlsx). A base será atualizada para todos os celulares e computadores instantaneamente.
+        </p>
+        <div class="upload-box" onclick="document.getElementById('input-totvs-file').click()">
+          <span style="font-size: 2.5rem;">📥</span>
+          <p style="font-weight: 700; margin-top: 0.5rem; color: var(--primary);">Selecionar Planilha CE0919</p>
+          <input type="file" id="input-totvs-file" accept=".xlsx, .xls" style="display: none;" onchange="importarRelatorioTOTVS(event)" />
+        </div>
+        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem;">Segurança:</h4>
+          <button class="btn btn-sm" style="background:#e2e8f0; color:#1e293b; max-width:220px; margin-bottom:1rem;" onclick="alterarSenhaAdmin()">🔑 Alterar Senha de Admin</button>
+          <h4 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem;">Status:</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted);" id="info-base-atual">Sincronizando com a nuvem Firebase...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <!-- Modal de Senha SESMT -->
+  <div id="modal-auth" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.75); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+    <div style="background:#fff; border-radius:16px; padding:1.5rem; max-width:320px; width:90%; text-align:center; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);">
+      <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔒</div>
+      <h3 style="color:var(--primary); font-size:1.1rem; margin-bottom:0.25rem;">Área Restrita SESMT</h3>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">Digite a senha de administrador para acessar:</p>
+      <input type="password" id="input-modal-pin" class="form-control" placeholder="Digite a senha..." style="text-align:center; font-size:1.2rem; letter-spacing:4px; margin-bottom:1rem;" onkeydown="if(event.key==='Enter') confirmarSenhaModal()" />
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="fecharModalSenha()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarSenhaModal()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBUeDzLWEkUStY9tjszFMyXC0IFzkvNG0M",
+      authDomain: "estoque-sesmt.firebaseapp.com",
+      databaseURL: "https://estoque-sesmt-default-rtdb.firebaseio.com",
+      projectId: "estoque-sesmt",
+      storageBucket: "estoque-sesmt.firebasestorage.app",
+      messagingSenderId: "202578359714",
+      appId: "1:202578359714:web:88c5944a9a7a335c986efb"
+    };
+
+    let adminPIN = "1234";
+    let db = null;
+    let isAdminAuthenticated = false;
+    let tabDestinoPendente = null;
+
+    let itensEstoque = [];
+    let movimentacoes = [];
+    let ajustesInventario = {};
+
+    const BASE_INICIAL_FALLBACK = [{"codigo": "07.070.0001", "descricao": "CALCA BEGE MANUTENCAO 36", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0002", "descricao": "CALCA BEGE MANUTENCAO 38", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0003", "descricao": "CALCA BEGE MANUTENCAO 40", "un": "UN", "saldo_totvs": 20.0, "dep": "70"}, {"codigo": "07.070.0004", "descricao": "CALCA BEGE MANUTENCAO 42", "un": "UN", "saldo_totvs": 22.0, "dep": "70"}, {"codigo": "07.070.0005", "descricao": "CALCA BEGE MANUTENCAO 44", "un": "UN", "saldo_totvs": 41.0, "dep": "70"}, {"codigo": "07.070.0006", "descricao": "CALCA BEGE MANUTENCAO 46", "un": "UN", "saldo_totvs": 58.0, "dep": "70"}, {"codigo": "07.070.0007", "descricao": "CALCA BEGE MANUTENCAO 48", "un": "UN", "saldo_totvs": 30.0, "dep": "70"}, {"codigo": "07.070.0008", "descricao": "CALCA BEGE MANUTENCAO 50", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0009", "descricao": "CALCA BEGE MANUTENCAO 54", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.070.0012", "descricao": "CALCA PRODUCAO BRANCA - 40 ( P )", "un": "UN", "saldo_totvs": 31.0, "dep": "70"}, {"codigo": "07.070.0019", "descricao": "CALCA PRODUCAO BRANCA - 54 ( GG )", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0020", "descricao": "CALCA PRODUCAO BRANCA - 56 ( EXG )", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0021", "descricao": "CALCA VERDE MOTORISTA 36", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0022", "descricao": "CALCA VERDE MOTORISTA 38", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0023", "descricao": "CALCA VERDE MOTORISTA 40", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0024", "descricao": "CALCA VERDE MOTORISTA 42", "un": "UN", "saldo_totvs": 123.0, "dep": "70"}, {"codigo": "07.070.0025", "descricao": "CALCA VERDE MOTORISTA 44", "un": "UN", "saldo_totvs": 107.0, "dep": "70"}, {"codigo": "07.070.0026", "descricao": "CALCA VERDE MOTORISTA 46", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0027", "descricao": "CALCA VERDE MOTORISTA 48", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.070.0028", "descricao": "CALCA VERDE MOTORISTA 50", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0029", "descricao": "CALCA VERDE MOTORISTA 52", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0030", "descricao": "CALCA VERDE MOTORISTA 54", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0031", "descricao": "CALCA VERDE MOTORISTA 58", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0032", "descricao": "CAMISA BEGE MOTORISTA EXGG", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0033", "descricao": "CAMISA BEGE MOTORISTA G", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.070.0034", "descricao": "CAMISA BEGE MOTORISTA GG", "un": "UN", "saldo_totvs": 26.0, "dep": "70"}, {"codigo": "07.070.0035", "descricao": "CAMISA BEGE MOTORISTA M", "un": "UN", "saldo_totvs": 51.0, "dep": "70"}, {"codigo": "07.070.0036", "descricao": "CAMISA BEGE MOTORISTA P", "un": "UN", "saldo_totvs": 57.0, "dep": "70"}, {"codigo": "07.070.0038", "descricao": "CAMISA CINZA MOTORISTA - M", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0043", "descricao": "CAMISA CINZA MOTORISTA - G", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0045", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININA TAM. M", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0046", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININA TAM. P", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0047", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO TAM.G", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0048", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO TAM.GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0049", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO TAM. M", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.070.0050", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO TAM. G", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0051", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO TAM. GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0052", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO TAM. P", "un": "UN", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.070.0053", "descricao": "CAMISA JOGOS BRANCA TAM. G", "un": "UN", "saldo_totvs": 20.0, "dep": "70"}, {"codigo": "07.070.0054", "descricao": "CAMISA JOGOS BRANCA TAM. M", "un": "UN", "saldo_totvs": 27.0, "dep": "70"}, {"codigo": "07.070.0055", "descricao": "CAMISA JOGOS BRANCA TAM. P", "un": "UN", "saldo_totvs": 67.0, "dep": "70"}, {"codigo": "07.070.0056", "descricao": "CAMISA JOGOS BRANCA TAM. EXG", "un": "UN", "saldo_totvs": 45.0, "dep": "70"}, {"codigo": "07.070.0057", "descricao": "CAMISA JOGOS BRANCA TAM.GG", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.070.0058", "descricao": "CAMISA MANGA LONGA BRANCA G", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.070.0059", "descricao": "CAMISA MANGA LONGA BRANCA GG", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.070.0060", "descricao": "CAMISA MANGA LONGA BRANCA M", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.070.0076", "descricao": "CAMISA PROMOTOR G", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0077", "descricao": "CAMISA PROMOTOR GG", "un": "UN", "saldo_totvs": 15.0, "dep": "70"}, {"codigo": "07.070.0079", "descricao": "CAMISA PROMOTOR P", "un": "UN", "saldo_totvs": 49.0, "dep": "70"}, {"codigo": "07.070.0080", "descricao": "CAMISA SOCIAL MANGA CURTA FEMININA - EXG", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.070.0082", "descricao": "CAMISA PORTEIRO MANGA CURTA MASCULINA - EXG", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0086", "descricao": "CAMISA SOCIAL MANGA CURTA MASCULINA - G", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.070.0087", "descricao": "CAMISA SOCIAL MANGA CURTA MASCULINA - GG", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0088", "descricao": "CAMISA SOCIAL MANGA CURTA MASCULINA - M", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0089", "descricao": "CAMISA SOCIAL MANGA CURTA MASCULINA - P", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0090", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE FEMININA -  EXG", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.070.0091", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE FEMININA - G", "un": "UN", "saldo_totvs": 21.0, "dep": "70"}, {"codigo": "07.070.0092", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE FEMININA -  GG", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.070.0093", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE FEMININA - M", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0095", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE MASCULINA - G", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0096", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE MASCULINA - M", "un": "UN", "saldo_totvs": 21.0, "dep": "70"}, {"codigo": "07.070.0097", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE MASCULINA - P", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.070.0098", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE MASCULINA - GG", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0116", "descricao": "JALECO BRIM BRANCO GG", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0121", "descricao": "JALECO BRIM BRANCO P", "un": "UN", "saldo_totvs": 19.0, "dep": "70"}, {"codigo": "07.070.0125", "descricao": "JALECO BRIM MARROM M", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0126", "descricao": "JALECO BRIM MARROM MANGA LONGA G", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0127", "descricao": "JALECO BRIM MARROM MANGA LONGA GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0128", "descricao": "JALECO BRIM MARROM MANGA LONGA M", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.070.0129", "descricao": "JALECO BRIM MARROM P", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0130", "descricao": "JALECO BRIM MARROM EXG", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0140", "descricao": "MOLETON BRANCO EXG", "un": "UN", "saldo_totvs": 22.0, "dep": "70"}, {"codigo": "07.070.0141", "descricao": "MOLETON BRANCO G", "un": "UN", "saldo_totvs": 26.0, "dep": "70"}, {"codigo": "07.070.0142", "descricao": "MOLETON BRANCO GG", "un": "UN", "saldo_totvs": 41.0, "dep": "70"}, {"codigo": "07.070.0143", "descricao": "MOLETON BRANCO M", "un": "UN", "saldo_totvs": 34.0, "dep": "70"}, {"codigo": "07.070.0149", "descricao": "TOUCA TECIDO BRANCA", "un": "UN", "saldo_totvs": 196.0, "dep": "70"}, {"codigo": "07.070.0233", "descricao": "CAMISA CINZA MOTORISTA -EXG", "un": "UN", "saldo_totvs": 32.0, "dep": "70"}, {"codigo": "07.070.0234", "descricao": "CAMISA SOCIAL MANGA CURTA FEMININA 38 - P", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0235", "descricao": "CAMISA SOCIAL MANGA CURTA FEMININA 40 - M", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.070.0236", "descricao": "JALECO BRIM BRANCO SALA DE ENVASE M/ LONGA - G", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.070.0246", "descricao": "JALECO BRANCO VISIT  ML Nº 60 25 CM A MAIS NO COMPRIMENTO", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0255", "descricao": "CAMISA ANTICHAMA G - CLASSE II - CA 33082", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0259", "descricao": "CALCA ANTICHAMA 42 - CA 34249", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0269", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 35 - CA 31801", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0270", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 36 - CA 31801", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.070.0271", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 37 - CA 31801", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0272", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 38 - CA 31801", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0274", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 40 - CA 31801", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0275", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 41 - CA 31801", "un": "UN", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.070.0276", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 42 - CA 31801", "un": "UN", "saldo_totvs": 23.0, "dep": "70"}, {"codigo": "07.070.0277", "descricao": "BOTINA BRANCA C/ BIQUEIRA ACO Nº 43 - CA 31801", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0278", "descricao": "LUVA NITRÍLICA AZUL - SENSIFLEX FLEX DA-90200 - G - CA 25091", "un": "UN", "saldo_totvs": 700.0, "dep": "70"}, {"codigo": "07.070.0280", "descricao": "JALECO BRIM CINZA M", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0281", "descricao": "JALECO BRIM CINZA G", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0282", "descricao": "JALECO BRIM CINZA GG", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0284", "descricao": "JALECO BRIM CINZA MANGA LONGA M", "un": "UN", "saldo_totvs": 15.0, "dep": "70"}, {"codigo": "07.070.0285", "descricao": "JALECO BRIM CINZA MANGA LONGA G", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0286", "descricao": "JALECO BRIM CINZA MANGA LONGA GG", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0288", "descricao": "JALECO BRIM MANUTENCAO TERCEIRIZADA VERDE - M", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0290", "descricao": "JALECO BRIM MANUTENCAO TERCEIRIZADA VERDE - GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0294", "descricao": "JALECO BRIM MANGA LONGA MANUTECAO TERCEIRIZADA VERDE - GG", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0299", "descricao": "CALCA CINZA MANUTENCAO 44", "un": "UN", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.070.0300", "descricao": "CALCA CINZA MANUTENCAO 46", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0301", "descricao": "CALCA CINZA MANUTENCAO 48", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0302", "descricao": "CALCA CINZA MANUTENCAO 50", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0303", "descricao": "CALCA CINZA MANUTENCAO 52", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0304", "descricao": "CALCA CINZA MANUTENCAO 54", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.070.0305", "descricao": "CALCA VERDE MANUTENCAO 36", "un": "UN", "saldo_totvs": 19.0, "dep": "70"}, {"codigo": "07.070.0307", "descricao": "CALCA VERDE MANUTENCAO 40", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0308", "descricao": "CALCA VERDE MANUTENCAO 42", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.070.0310", "descricao": "CALCA VERDE MANUTENCAO 46", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0312", "descricao": "CALCA VERDE MANUTENCAO 50", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0315", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 36/37 - CA 16065", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0316", "descricao": "CAMISA PROMOTOR TAMANHO ESPECIAL", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0317", "descricao": "CALCA PRODUCAO BRANCA - TAMANHO ESPECIAL", "un": "UN", "saldo_totvs": 15.0, "dep": "70"}, {"codigo": "07.070.0318", "descricao": "JALECO BRIM BRANCO TAMANHO ESPECIAL", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0320", "descricao": "CINTA LOMBAR PRETA P/ MOVIMENTACAO MANUAL DE CARGAS - TAM G", "un": "UN", "saldo_totvs": 20.0, "dep": "70"}, {"codigo": "07.070.0322", "descricao": "CAMISA JOGOS BRANCA TAM. ESPECIAL", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0349", "descricao": "CAMISA PROMOTOR EXG", "un": "UN", "saldo_totvs": 44.0, "dep": "70"}, {"codigo": "07.070.0353", "descricao": "MOLETON BRANCO - P", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.070.0355", "descricao": "JALECO BRIM BRANCO - EXG", "un": "UN", "saldo_totvs": 55.0, "dep": "70"}, {"codigo": "07.070.0357", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO - VERDE TAM - P", "un": "UN", "saldo_totvs": 42.0, "dep": "70"}, {"codigo": "07.070.0358", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO - VERDE TAM - M", "un": "UN", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.070.0359", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO - VERDE TAM - G", "un": "UN", "saldo_totvs": 27.0, "dep": "70"}, {"codigo": "07.070.0360", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO - VERDE TAM -GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0367", "descricao": "OCULOS DE SOBREPOR INCOLOR - CA 20703", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0368", "descricao": "LUVA TERMICA VOLK - CA 18663", "un": "UN", "saldo_totvs": 20.0, "dep": "70"}, {"codigo": "07.070.0369", "descricao": "JAPONA FRIGORIFICA AZUL EGG - CA 25725", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0392", "descricao": "COLETE SEGURANCA DO TRABALHO - TAM EXG", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0394", "descricao": "FITA ADESIVA ANTIDERRAPANTE 50MM X 20M PRETA", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0417", "descricao": "CALCA DE SEGURANCA MOTOSSERRISTA - CA 35.800", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0418", "descricao": "LUVA DE SEGURANCA MOTOSSERRISTA - CA 25.636", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0422", "descricao": "TELA MALHA PLASTICA PROT. FACIAL - MOTOSSERISTA", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0424", "descricao": "CAMISA PROMOTOR EXGG", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0435", "descricao": "JALECO BRIM MANGA LONGA MANUTECAO TERCEIRIZADA VERDE - ESPEC", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0446", "descricao": "TOUCA AMARELA - TREINAMENTO", "un": "UN", "saldo_totvs": 280.0, "dep": "70"}, {"codigo": "07.070.0452", "descricao": "CAMISA PARA VIGIA PATIO - TAM GG", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.070.0460", "descricao": "LUVA VAQUETA CANO LONGO - CA 14814", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0466", "descricao": "CAMISA VERDE HIGIENIZAÇÃO - TAM. P", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0467", "descricao": "CAMISA VERDE HIGIENIZAÇÃO - TAM. M", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0470", "descricao": "CALCA VERDE HIGIENIZAÇÃO  44", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0472", "descricao": "CAMISA BEGE MOTORISTA EXG", "un": "UN", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.070.0477", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO  VERDE TAM M", "un": "UN", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.070.0478", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO  VERDE TAM G", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.070.0479", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO  VERDE TAM GG", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.070.0480", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE FEMININO  VERDE TAM EXG", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.070.0481", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO  VERDE TAM EXG", "un": "UN", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.070.0482", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO VERDE TAM EXGG", "un": "UN", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.070.0483", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO  VERDE TAM ESP", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.070.0484", "descricao": "CALCA CINZA MANUTENCAO 56", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0485", "descricao": "CALCA PRODUCAO BRANCA - TAMANHO EXTRA ESPECIAL", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0493", "descricao": "CAMISA MANGA LONGA BRANCA P", "un": "UN", "saldo_totvs": 25.0, "dep": "70"}, {"codigo": "07.070.0495", "descricao": "CAMISA MANGA LONGA BRANCA EXG", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.070.0519", "descricao": "JAQUETA PUFFER VERDE - TAM PP", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0520", "descricao": "JAQUETA PUFFER VERDE - TAM P", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.070.0521", "descricao": "JAQUETA PUFFER VERDE - TAM M", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.070.0523", "descricao": "JAQUETA PUFFER VERDE - TAM GG", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.071.0004", "descricao": "LUVA PLASTICA DESCARTAVEL", "un": "UN", "saldo_totvs": 18300.0, "dep": "70"}, {"codigo": "07.071.0017", "descricao": "TRAVA QUEDAS RETRATIL 5 MT CABO DE ACO", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.071.0019", "descricao": "TALABARTE EM Y PARA TRABALHO EM ALTURA CINTURÃO CA 36375", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.071.0020", "descricao": "CINTURAO DE SEGURANCA PARA TRABALHO EM ALTURA CA 36375", "un": "UN", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.071.0154", "descricao": "AVENTAL PVC LAMINADO COM FORRO GROSSO - 1,30 X 0,70 X 0,07 -", "un": "UN", "saldo_totvs": 368.0, "dep": "70"}, {"codigo": "07.071.0155", "descricao": "AVENTAL RASPA - CA 11713", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0156", "descricao": "BLUSAO DE RASPA C/ MANGA - CA 32591", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0158", "descricao": "BOTA PVC CANO MEDIO BRANCA 35 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0159", "descricao": "BOTA PVC CANO MEDIO BRANCA 36 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 15.0, "dep": "70"}, {"codigo": "07.071.0160", "descricao": "BOTA PVC CANO MEDIO BRANCA 37 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0161", "descricao": "BOTA PVC CANO MEDIO BRANCA 38 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.071.0162", "descricao": "BOTA PVC CANO MEDIO BRANCA 39 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0163", "descricao": "BOTA PVC CANO MEDIO BRANCA 40 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.071.0164", "descricao": "BOTA PVC CANO MEDIO BRANCA 41 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.071.0165", "descricao": "BOTA PVC CANO MEDIO BRANCA 42 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.071.0166", "descricao": "BOTA PVC CANO MEDIO BRANCA 43 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.071.0167", "descricao": "BOTA PVC CANO MEDIO BRANCA 44 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.071.0168", "descricao": "BOTA PVC CANO MEDIO BRANCA 45 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0169", "descricao": "BOTA PVC CANO MEDIO BRANCA 46 - CA 37456 OU 36939", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0170", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 38 - CA 16065", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0171", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 39 - CA 16065", "un": "PR", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.071.0172", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 40 - CA 16065", "un": "PR", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0173", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 41 - CA 16065", "un": "PR", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.071.0174", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 42 - CA 16065", "un": "PR", "saldo_totvs": 8.0, "dep": "70"}, {"codigo": "07.071.0175", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 43 - CA 16065", "un": "PR", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0176", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 44/45 - CA 16065", "un": "PR", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0177", "descricao": "BOTA PVC TERMICA BRANCA 38 - CA 25766", "un": "PR", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.071.0178", "descricao": "BOTA PVC TERMICA BRANCA 39 - CA 25766", "un": "PR", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0179", "descricao": "BOTA PVC TERMICA BRANCA 40 - CA 25766", "un": "PR", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.071.0180", "descricao": "BOTA PVC TERMICA BRANCA 41 - CA 25766", "un": "PR", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0182", "descricao": "BOTA PVC TERMICA BRANCA 42/43 - CA 25766", "un": "PR", "saldo_totvs": 22.0, "dep": "70"}, {"codigo": "07.071.0183", "descricao": "BOTA PVC TERMICA BRANCA 44/45 - CA 25766", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0185", "descricao": "BOTINA DE COURO C/ BICO 37 - CA 15381 OU 42391", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0186", "descricao": "BOTINA DE COURO C/ BICO 38 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.071.0187", "descricao": "BOTINA DE COURO C/ BICO 39 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.071.0188", "descricao": "BOTINA DE COURO C/ BICO 40 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0189", "descricao": "BOTINA DE COURO C/ BICO 41 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0190", "descricao": "BOTINA DE COURO C/ BICO 42 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.071.0191", "descricao": "BOTINA DE COURO C/ BICO 43 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.071.0192", "descricao": "BOTINA DE COURO C/ BICO 44 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0193", "descricao": "BOTINA DE COURO C/ BICO 45 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0194", "descricao": "BOTINA DE COURO S/ BICO 36 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0195", "descricao": "BOTINA DE COURO S/ BICO 37 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0196", "descricao": "BOTINA DE COURO S/ BICO 38 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.071.0197", "descricao": "BOTINA DE COURO S/ BICO 39 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.071.0198", "descricao": "BOTINA DE COURO S/ BICO 40 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.071.0199", "descricao": "BOTINA DE COURO S/ BICO 41 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 19.0, "dep": "70"}, {"codigo": "07.071.0200", "descricao": "BOTINA DE COURO S/ BICO 42 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0201", "descricao": "BOTINA DE COURO S/ BICO 43 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.071.0202", "descricao": "BOTINA DE COURO S/ BICO 44 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0203", "descricao": "BOTINA DE COURO S/ BICO 45 - CA 15383 OU 41419", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0205", "descricao": "CALCA FRIGORIFICA AZUL - GG - CA 10976", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.071.0207", "descricao": "CALCA FRIGORIFICA AZUL - P - CA 10976", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0209", "descricao": "CALCA FRIGORIFICA BRANCA - G - CA 10976", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0210", "descricao": "CALCA FRIGORIFICA BRANCA - M - CA 10976", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0211", "descricao": "CALCA PVC AMARELO FORRADA - G - CA 30606", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.071.0213", "descricao": "CAPA CHUVA AMARELA - CA 28191", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0214", "descricao": "CAPACETE PLASTICO BRANCO - CA 31469", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0215", "descricao": "CAPUZ BRIM P/ SOLDADOR - CA 10979", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0220", "descricao": "CREME P/ MAOS - LUVA INVISIVEL 200GR - CA 11070", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0221", "descricao": "FILTRO 3M 6006 MULTIGASES", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.071.0223", "descricao": "FILTRO PARA MASCARA DE AMONIA 510036 TIPO 9000 K2 - CA 5758", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0224", "descricao": "FITA ZEBRADA PTO/AML 200 MTS", "un": "UN", "saldo_totvs": 22.0, "dep": "70"}, {"codigo": "07.071.0225", "descricao": "JALECO DESCARTAVEL TNT", "un": "UN", "saldo_totvs": 26.0, "dep": "70"}, {"codigo": "07.071.0226", "descricao": "JAPONA FRIGORIFICA AZUL G - CA 10975", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0227", "descricao": "JAPONA FRIGORIFICA AZUL GG - CA 10975", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0228", "descricao": "JAPONA FRIGORIFICA AZUL M - CA 10975", "un": "UN", "saldo_totvs": 21.0, "dep": "70"}, {"codigo": "07.071.0229", "descricao": "JAPONA TERMICA FRIGORIFICA BRANCA - G - CA 10975", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0230", "descricao": "JAPONA TERMICA FRIGORIFICA BRANCA - M - CA 10975", "un": "UN", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.071.0237", "descricao": "JAPONA TERMICA FRIGORIFICA BRANCA  - P - CA 10975", "un": "UN", "saldo_totvs": 22.0, "dep": "70"}, {"codigo": "07.071.0245", "descricao": "JUGULAR PARA CAPACETE", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0250", "descricao": "LUVA PVC CANO LONGO 70 CM - CA 1713", "un": "PR", "saldo_totvs": 9.0, "dep": "70"}, {"codigo": "07.071.0252", "descricao": "LUVA RASPA CANO LONGO REFORCADA 20 CM - CA 8048", "un": "PR", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0255", "descricao": "LUVA TRICOTADA MULTITATO PRETA 750  - CA 32034", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.071.0258", "descricao": "CALCA FRIGORIFICA BRANCA - P - CA 10976", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0261", "descricao": "MASCARA DESCARTAVEL TNT C/ ELASTICO - DUPLA", "un": "UN", "saldo_totvs": 2300.0, "dep": "70"}, {"codigo": "07.071.0265", "descricao": "MEIAO TERMICO BRANCO - CA 13663", "un": "PR", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.071.0266", "descricao": "OCULOS AMPLA VISAO K2 LENTE CLARA - CA 14883", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.071.0268", "descricao": "OCULOS DE PROTECAO INCOLOR - CA 6136", "un": "UN", "saldo_totvs": 34.0, "dep": "70"}, {"codigo": "07.071.0270", "descricao": "OCULOS PROTECAO LENTE ESCURA - CA 6136", "un": "UN", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0272", "descricao": "PERNEIRA C/ TALA - CA 18258", "un": "PR", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0273", "descricao": "PERNEIRA DE RASPA - CA 11714", "un": "PR", "saldo_totvs": 11.0, "dep": "70"}, {"codigo": "07.071.0275", "descricao": "PROPES DE PLASTICO COM ELASTICO / BOTA PLASTICA COM ELASTICO", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0277", "descricao": "PROTETOR AURICULAR PLUG SILICONE - CA 19578", "un": "PR", "saldo_totvs": 103.0, "dep": "70"}, {"codigo": "07.071.0278", "descricao": "PROTETOR AURICULAR TIPO CONCHA - 1426 - 3M - CA 29176", "un": "UN", "saldo_totvs": 103.0, "dep": "70"}, {"codigo": "07.071.0279", "descricao": "PROTETOR FACIAL ACRILICO - CA 14197", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0280", "descricao": "PROTETOR SOLAR - 120 ML", "un": "UN", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0281", "descricao": "RESPIRADOR 6800 - 3M - CA 7298", "un": "UN", "saldo_totvs": 1.0, "dep": "70"}, {"codigo": "07.071.0282", "descricao": "RESPIRADOR SEMI FACIAL 6300 - 3M - CA 4115", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.071.0285", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 33 - CA 32817", "un": "PR", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0287", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 35 - CA 32817", "un": "PR", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.071.0288", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 36 - CA 32817", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0289", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 37 - CA 32817", "un": "PR", "saldo_totvs": 18.0, "dep": "70"}, {"codigo": "07.071.0290", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 38 - CA 32817", "un": "PR", "saldo_totvs": 20.0, "dep": "70"}, {"codigo": "07.071.0291", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 39 - CA 32817", "un": "PR", "saldo_totvs": 16.0, "dep": "70"}, {"codigo": "07.071.0292", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 40 - CA 32817", "un": "PR", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0293", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 41 - CA 32817", "un": "PR", "saldo_totvs": 13.0, "dep": "70"}, {"codigo": "07.071.0294", "descricao": "TENIS 50F61BP PROMOTOR BRANCO - 42 - CA 32817", "un": "PR", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0298", "descricao": "TOUCA DESCARTAVEL TNT", "un": "UN", "saldo_totvs": 1700.0, "dep": "70"}, {"codigo": "07.071.0300", "descricao": "TOUCA NINJA LA BRANCA - CA 27656", "un": "UN", "saldo_totvs": 17.0, "dep": "70"}, {"codigo": "07.071.0301", "descricao": "VIDRO P/ MASCARA DE SOLDA INCOLOR", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0302", "descricao": "VIDRO P/ MASCARA DE SOLDA TON 10", "un": "UN", "saldo_totvs": 50.0, "dep": "70"}, {"codigo": "07.071.0305", "descricao": "CAMISA SOCIAL MANGA CURTA FEMININA 46 - G", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0306", "descricao": "CAMISA SOCIAL MANGA CURTA FEMININA 48 - GG", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.071.0307", "descricao": "CAMISA SOCIAL MANGA CURTA MASCULINA - EXG", "un": "UN", "saldo_totvs": 7.0, "dep": "70"}, {"codigo": "07.071.0308", "descricao": "CAMISA SOCIAL MANGA LONGA VERDE MASCULINA - EXG", "un": "UN", "saldo_totvs": 10.0, "dep": "70"}, {"codigo": "07.071.0311", "descricao": "SACOLINHA TNT- 45X50", "un": "UN", "saldo_totvs": 1228.0, "dep": "70"}, {"codigo": "07.071.0315", "descricao": "BOTINA DE COURO C/ BICO - 34 - CA 15381 OU 42391", "un": "PR", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0324", "descricao": "FITA ADESIVA DEMARCACAO DE SOLO PVC 48MM X 30M  AMARELA", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0335", "descricao": "LUVA PEGASUS TOTAL PRO - DA-16100 - DANNY - CA 30905", "un": "PR", "saldo_totvs": 12.0, "dep": "70"}, {"codigo": "07.071.0339", "descricao": "CINTA LOMBAR PRETA P/ MOVIMENTACAO MANUAL DE CARGAS - TAM M", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0343", "descricao": "BOTA PVC CANO MEDIO ULTRA LEVE BRANCA 34/35 - CA 16065", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0344", "descricao": "BOTINA DE COURO C/ BICO 36 - CA 15381 OU 42391", "un": "UN", "saldo_totvs": 3.0, "dep": "70"}, {"codigo": "07.071.0350", "descricao": "JAPONA TERMICA FRIGORIFICA BRANCA EXGG - CA 25725", "un": "UN", "saldo_totvs": 5.0, "dep": "70"}, {"codigo": "07.071.0356", "descricao": "LUVA DE VINIL / CX COM 100 -TAM 9(G) - CA 20.722", "un": "CX", "saldo_totvs": 6.0, "dep": "70"}, {"codigo": "07.071.0363", "descricao": "FITA ADESIVA DEMARCACAO PVC 48MM X 30M  VERMELHA", "un": "UN", "saldo_totvs": 2.0, "dep": "70"}, {"codigo": "07.071.0365", "descricao": "LUVA TRICOTADA PIGMENTADA POLIFLEX  - CA 14997", "un": "UN", "saldo_totvs": 38.0, "dep": "70"}, {"codigo": "07.071.0368", "descricao": "KIT HIG. ABAF. LIBUS L320V 903092", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0370", "descricao": "CAMISA GOLA POLO BORDADO NA FRENTE MASCULINO TAM. EXG", "un": "UN", "saldo_totvs": 4.0, "dep": "70"}, {"codigo": "07.071.0372", "descricao": "JAPONA TERMICA FRIGORIFICA BRANCA - GG - CA 10975", "un": "UN", "saldo_totvs": 14.0, "dep": "70"}, {"codigo": "07.071.0380", "descricao": "CINTA LOMBAR P/ MOVIMENTAÇÃO DE CARGAS EXGG", "un": "UN", "saldo_totvs": 11.0, "dep": "70"}];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      itensEstoque = JSON.parse(localStorage.getItem("epi_itens_cache")) || BASE_INICIAL_FALLBACK;
+      movimentacoes = JSON.parse(localStorage.getItem("epi_movs_cache")) || [];
+      ajustesInventario = JSON.parse(localStorage.getItem("epi_ajustes_cache")) || {};
+      atualizarBadges();
+      renderizarEstoque();
+      renderizarPendencias();
+      inicializarFirebaseAsync();
+    });
+
+    function inicializarFirebaseAsync() {
+      if (typeof firebase === 'undefined') {
+        setTimeout(inicializarFirebaseAsync, 100);
+        return;
+      }
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.database();
+        const cloudStatus = document.getElementById("cloud-status-text");
+        if (cloudStatus) cloudStatus.innerHTML = '<span class="dot-online"></span> Nuvem Conectada';
+
+        db.ref("itensEstoque").once("value", snapshot => {
+          const data = snapshot.val();
+          if (data && Array.isArray(data) && data.length > 0) {
+            itensEstoque = data;
+          } else if (data && typeof data === 'object') {
+            itensEstoque = Object.values(data);
+          } else {
+            db.ref("itensEstoque").set(BASE_INICIAL_FALLBACK);
+            itensEstoque = BASE_INICIAL_FALLBACK;
+          }
+          localStorage.setItem("epi_itens_cache", JSON.stringify(itensEstoque));
+          const infoBase = document.getElementById("info-base-atual");
+          if (infoBase) infoBase.innerText = `Base ativa com ${itensEstoque.length} itens!`;
+          renderizarEstoque();
+        });
+
+        db.ref("movimentacoes").on("value", snapshot => {
+          const data = snapshot.val();
+          movimentacoes = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+          localStorage.setItem("epi_movs_cache", JSON.stringify(movimentacoes));
+          atualizarBadges();
+          renderizarPendencias();
+          renderizarEstoque();
+        });
+
+        db.ref("ajustesInventario").on("value", snapshot => {
+          ajustesInventario = snapshot.val() || {};
+          localStorage.setItem("epi_ajustes_cache", JSON.stringify(ajustesInventario));
+          renderizarEstoque();
+        });
+
+        db.ref("adminPIN").on("value", snapshot => {
+          if (snapshot.val()) adminPIN = snapshot.val();
+        });
+
+      } catch(err) {
+        console.warn("Modo offline ativado", err);
+      }
+    }
+
+    function switchTab(tabId) {
+      const abasRestritas = ['tab-pendencias', 'tab-estoque', 'tab-config'];
+      if (abasRestritas.includes(tabId) && !isAdminAuthenticated) {
+        tabDestinoPendente = tabId;
+        abrirModalSenha();
+        return;
+      }
+      ativarAba(tabId);
+    }
+
+    function abrirModalSenha() {
+      const modal = document.getElementById("modal-auth");
+      const input = document.getElementById("input-modal-pin");
+      if (modal && input) {
+        input.value = "";
+        modal.style.display = "flex";
+        setTimeout(() => input.focus(), 150);
+      }
+    }
+
+    function fecharModalSenha() {
+      const modal = document.getElementById("modal-auth");
+      if (modal) modal.style.display = "none";
+      tabDestinoPendente = null;
+    }
+
+    function confirmarSenhaModal() {
+      const input = document.getElementById("input-modal-pin");
+      const pinDigitado = input ? input.value : "";
+      if (pinDigitado === adminPIN) {
+        isAdminAuthenticated = true;
+        fecharModalSenha();
+        document.getElementById("btn-lock-session").style.display = "inline-block";
+        mostrarToast("🔓 Acesso Liberado ao SESMT!");
+        if (tabDestinoPendente) {
+          ativarAba(tabDestinoPendente);
+          tabDestinoPendente = null;
+        }
+      } else {
+        alert("❌ Senha incorreta!");
+        if (input) {
+          input.value = "";
+          input.focus();
+        }
+      }
+    }
+
+    function bloquearSessao() {
+      isAdminAuthenticated = false;
+      document.getElementById("btn-lock-session").style.display = "none";
+      ativarAba('tab-retirada');
+      mostrarToast("🔒 Sessão protegida! Senha necessária para o SESMT.");
+    }
+
+    function ativarAba(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById(tabId);
+      if (el) el.classList.add('active');
+      const botoes = document.querySelectorAll('.nav-btn');
+      if (tabId === 'tab-retirada') botoes[0].classList.add('active');
+      if (tabId === 'tab-pendencias') botoes[1].classList.add('active');
+      if (tabId === 'tab-estoque') botoes[2].classList.add('active');
+      if (tabId === 'tab-config') botoes[3].classList.add('active');
+
+      if (tabId === 'tab-pendencias') renderizarPendencias();
+      if (tabId === 'tab-estoque') renderizarEstoque();
+    }
+
+    function alterarSenhaAdmin() {
+      const pinAtual = prompt("Digite a senha atual:");
+      if (pinAtual !== adminPIN) { alert("❌ Senha atual incorreta!"); return; }
+      const novoPin = prompt("Digite a nova senha (mínimo 4 dígitos):");
+      if (novoPin && novoPin.trim().length >= 4) {
+        adminPIN = novoPin.trim();
+        if (db) db.ref("adminPIN").set(adminPIN);
+        mostrarToast("🔑 Senha alterada com sucesso em todos os aparelhos!");
+      }
+    }
+
+    function getSaldoFisico(codigo) {
+      const item = itensEstoque.find(i => i.codigo === codigo);
+      if (!item) return 0;
+      const pendentes = movimentacoes.filter(m => m.codigo === codigo && m.status === 'Pendente').reduce((sum, m) => sum + Number(m.quantidade), 0);
+      const ajuste = (ajustesInventario[codigo] && ajustesInventario[codigo].delta) ? ajustesInventario[codigo].delta : 0;
+      return item.saldo_totvs + ajuste - pendentes;
+    }
+
+    function filtrarItens(termo) {
+      const resultsDiv = document.getElementById("search-results");
+      if (!termo.trim()) { resultsDiv.style.display = "none"; return; }
+      const busca = termo.toLowerCase();
+      const filtrados = itensEstoque.filter(i => (i.codigo && i.codigo.toLowerCase().includes(busca)) || (i.descricao && i.descricao.toLowerCase().includes(busca))).slice(0, 15);
+      if (filtrados.length === 0) { resultsDiv.innerHTML = '<div class="search-item">Nenhum EPI encontrado</div>'; resultsDiv.style.display = "block"; return; }
+      resultsDiv.innerHTML = filtrados.map(item => {
+        const saldo = getSaldoFisico(item.codigo);
+        return `<div class="search-item" onclick="selecionarItem('${item.codigo}', '${item.descricao.replace(/'/g, "\\'")}', ${saldo})">
+          <span class="search-item-code">${item.codigo}</span> - ${item.descricao} <span class="search-item-stock">Físico: <b>${saldo} ${item.un}</b></span>
+        </div>`;
+      }).join('');
+      resultsDiv.style.display = "block";
+    }
+
+    function selecionarItem(codigo, descricao, saldo) {
+      document.getElementById("item-search").value = `${codigo} - ${descricao}`;
+      document.getElementById("item-codigo-selected").value = codigo;
+      document.getElementById("search-results").style.display = "none";
+      const callout = document.getElementById("stock-callout");
+      document.getElementById("callout-desc").innerText = descricao;
+      document.getElementById("callout-saldo").innerText = `${saldo} un`;
+      callout.style.display = "flex";
+    }
+
+    function salvarRetirada(event) {
+      event.preventDefault();
+      const codigo = document.getElementById("item-codigo-selected").value;
+      const colaborador = document.getElementById("colaborador").value;
+      const quantidade = parseInt(document.getElementById("quantidade").value, 10);
+      const motivo = document.getElementById("motivo").value;
+      if (!codigo) { mostrarToast("⚠️ Selecione um EPI válido."); return; }
+      const item = itensEstoque.find(i => i.codigo === codigo);
+      const agora = new Date();
+      const novaMov = {
+        id: Date.now(),
+        data: agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'}),
+        dataIso: agora.toISOString().split('T')[0], // Salva a data pura (AAAA-MM-DD) para controle diário
+        codigo: codigo,
+        descricao: item ? item.descricao : "EPI",
+        colaborador: colaborador,
+        quantidade: quantidade,
+        motivo: motivo,
+        status: "Pendente",
+        dataBaixaTotvs: ""
+      };
+      
+      const novasMovs = [novaMov, ...movimentacoes];
+      if (db) db.ref("movimentacoes").set(novasMovs);
+
+      document.getElementById("form-retirada").reset();
+      document.getElementById("item-codigo-selected").value = "";
+      document.getElementById("stock-callout").style.display = "none";
+      mostrarToast("✅ Retirada gravada e sincronizada para todos!");
+    }
+
+    let renderizandoPendente = false;
+
+    function renderizarPendencias() {
+      if (renderizandoPendente) return;
+      
+      const tbody = document.getElementById("tbody-pendencias");
+      const tbodyHist = document.getElementById("tbody-historico");
+      if (!tbody || !tbodyHist) return;
+
+      const pendentes = movimentacoes.filter(m => m.status === "Pendente");
+      
+      // VERIFICA E ATIVA O BLOQUEIO DIÁRIO (APENAS SE HOUVER PENDÊNCIAS DE DIAS ANTERIORES)
+      verificarBloqueioDiario(pendentes);
+
+      const baixados = movimentacoes.filter(m => m.status === "Baixado").slice(0, 30);
+      
+      const countElem = document.getElementById("count-pendencias");
+      if (countElem) countElem.innerText = `${pendentes.length} itens`;
+
+      if (pendentes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">🎉 Nenhuma pendência!</td></tr>`;
+      } else {
+        tbody.innerHTML = pendentes.map(m => `
+          <tr>
+            <td>${m.data}</td>
+            <td><strong>${m.codigo}</strong></td>
+            <td>${m.descricao}</td>
+            <td>${m.colaborador}</td>
+            <td><b>${m.quantidade}</b></td>
+            <td><span class="status-badge status-pendente">🟡 Pendente</span></td>
+            <td>
+              <div style="display:flex; gap:0.35rem;">
+                <button class="btn btn-success btn-sm" onclick="marcarComoBaixado(${m.id})">✅ OK</button>
+                <button class="btn btn-sm" style="background:#e2e8f0;" onclick="editarRetirada(${m.id})">✏️</button>
+                <button class="btn btn-sm" style="background:#fee2e2; color:#991b1b;" onclick="cancelarRetirada(${m.id})">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      tbodyHist.innerHTML = baixados.map(m => `
+        <tr>
+          <td>${m.data}</td>
+          <td>${m.codigo}</td>
+          <td>${m.descricao}</td>
+          <td>${m.colaborador}</td>
+          <td>${m.quantidade}</td>
+          <td><span class="status-badge status-baixado">🟢 ${m.dataBaixaTotvs}</span></td>
+          <td><button class="btn btn-sm" style="background:#fef3c7;" onclick="estornarBaixa(${m.id})">↩️ Desfazer</button></td>
+        </tr>
+      `).join('');
+    }
+
+    // NOVA LÓGICA: SÓ BLOQUEIA SE HOUVER PENDÊNCIAS DE DIAS ANTERIORES (JÁ PASSOU DE DATA)
+    function verificarBloqueioDiario(pendentes) {
+      let overlay = document.getElementById("bloqueio-diario-overlay");
+      
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "bloqueio-diario-overlay";
+        overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.95); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:1.5rem; color:#fff; overflow-y:auto;";
+        document.body.appendChild(overlay);
+      }
+
+      const hojeStr = new Date().toISOString().split('T')[0];
+      
+      // Filtra apenas pendências que são de DIAS ANTERIORES ao dia de hoje
+      const pendenciasAntigas = pendentes.filter(p => {
+        const dataItem = p.dataIso || (p.data ? p.data.split(' ')[0].split('/').reverse().join('-') : hojeStr);
+        return dataItem < hojeStr;
+      });
+
+      if (pendenciasAntigas && pendenciasAntigas.length > 0) {
+        function obterChaveNomeUnica(nome) {
+          if (!nome) return "NÃO IDENTIFICADO";
+          let n = nome.trim().toUpperCase().replace(/\s+/g, ' ');
+          let primeiroNome = n.split(' ')[0];
+          return primeiroNome;
+        }
+
+        const porColaborador = {};
+        pendenciasAntigas.forEach(p => {
+          let nomeBruto = (p.colaborador || "Não identificado").trim();
+          let chaveUnica = obterChaveNomeUnica(nomeBruto);
+          
+          if (!porColaborador[chaveUnica]) {
+            porColaborador[chaveUnica] = {
+              nomeExibicao: nomeBruto,
+              itens: []
+            };
+          } else {
+            if (nomeBruto.length > porColaborador[chaveUnica].nomeExibicao.length) {
+              porColaborador[chaveUnica].nomeExibicao = nomeBruto;
+            }
+          }
+          porColaborador[chaveUnica].itens.push(p);
+        });
+
+        let resumoColaboradoresHtml = Object.keys(porColaborador).map(chave => {
+          const grupo = porColaborador[chave];
+          const itensDoColab = grupo.itens;
+          const totalQtd = itensDoColab.reduce((acc, curr) => acc + Number(curr.quantidade), 0);
+          
+          return `
+            <div style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:0.85rem; margin-bottom:0.5rem;">
+              <div style="font-weight:bold; font-size:0.95rem; color:#38bdf8; display:flex; justify-content:space-between; align-items:center;">
+                <span>👤 ${grupo.nomeExibicao}</span>
+                <span style="background:#f59e0b; color:#000; font-size:0.75rem; padding:0.1rem 0.5rem; border-radius:999px;">${totalQtd} itens</span>
+              </div>
+              <ul style="margin-top:0.5rem; padding-left:0; list-style:none; font-size:0.82rem; color:#cbd5e1;">
+                ${itensDoColab.map(i => `
+                  <li style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:0.4rem 0.6rem; border-radius:6px; margin-bottom:0.3rem;">
+                    <div>
+                      <div style="display:flex; gap:0.4rem; align-items:center; margin-bottom:0.15rem;">
+                        <span style="font-family:monospace; background:rgba(59,130,246,0.2); color:#60a5fa; padding:0.1rem 0.35rem; border-radius:4px; font-weight:bold; font-size:0.78rem;">${i.codigo}</span>
+                        <strong style="color:#f8fafc;">${i.quantidade}x ${i.descricao}</strong>
+                      </div>
+                      <span style="color:#94a3b8; font-size:0.7rem;">🕒 Retirado em: ${i.data}</span>
+                    </div>
+                    <button class="btn btn-success btn-sm" style="padding:0.25rem 0.5rem; font-size:0.75rem; white-space:nowrap;" onclick="marcarComoBaixado(${i.id})">✅ Baixar</button>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        }).join('');
+
+        overlay.style.display = "flex";
+        overlay.innerHTML = `
+          <div style="max-width:650px; width:100%; background:#1e293b; border:2px solid #ef4444; border-radius:16px; padding:1.5rem; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); max-height:90vh; display:flex; flex-direction:column;">
+            <div style="text-align:center; margin-bottom:1rem;">
+              <span style="font-size:2.5rem;">🚨</span>
+              <h2 style="color:#ef4444; font-size:1.25rem; margin-top:0.25rem;">BLOQUEIO DIÁRIO - PENDÊNCIAS EM ATRASO</h2>
+              <p style="font-size:0.82rem; color:#94a3b8; margin-top:0.25rem;">
+                Existem <b>${pendenciasAntigas.length} itens de dias anteriores</b> aguardando baixa no TOTVS. O sistema foi bloqueado até que sejam regularizados:
+              </p>
+            </div>
+
+            <div style="flex:1; overflow-y:auto; margin-bottom:1.25rem; padding-right:0.25rem;">
+              ${resumoColaboradoresHtml}
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:0.5rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:1rem;">
+              <button class="btn" style="background:#3b82f6; color:#fff; font-weight:bold;" onclick="imprimirListaPendencias()">
+                🖨️ Imprimir Lista Agrupada por Colaborador
+              </button>
+              <button class="btn" style="background:#10b981; color:#fff; font-weight:bold; font-size:1rem; padding:0.9rem;" onclick="baixarTodasPendenciasGeral()">
+                ✅ Confirmar que Lancei Tudo no TOTVS (Liberar Sistema)
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        overlay.style.display = "none";
+      }
+    }
+
+    // BAIXA GERAL COM ALERTA DE CONFIRMAÇÃO DETALHADO
+    function baixarTodasPendenciasGeral() {
+      const totalPendentes = movimentacoes.filter(m => m.status === "Pendente").length;
+      
+      if (totalPendentes === 0) {
+        alert("⚠️ Não há itens pendentes na fila.");
+        return;
+      }
+
+      const mensagemAlerta = 
+        `⚠️ ATENÇÃO: VOCÊ ESTÁ PRESTES A REALIZAR A BAIXA GERAL!\n\n` +
+        `Ao confirmar esta ação:\n` +
+        `• Todos os ${totalPendentes} itens pendentes da fila passarão AUTOMATICAMENTE para o status de "Baixado".\n` +
+        `• O saldo oficial do TOTVS será descontado para todos esses itens.\n` +
+        `• O bloqueio diário será removido e a tela de retirada voltará a funcionar normalmente.\n\n` +
+        `Tem certeza absoluta de que já lançou tudo isso no sistema TOTVS?`;
+
+      if (!confirm(mensagemAlerta)) {
+        return;
+      }
+
+      if (!confirm("🚨 Confirmação final: Deseja realmente concluir e liberar o sistema agora?")) {
+        return;
+      }
+
+      const agora = new Date();
+      const dataBaixaStr = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'});
+
+      movimentacoes.forEach(m => {
+        if (m.status === "Pendente") {
+          const itemEstoque = itensEstoque.find(i => i.codigo === m.codigo);
+          if (itemEstoque) {
+            itemEstoque.saldo_totvs -= Number(m.quantidade);
+          }
+          m.status = "Baixado";
+          m.dataBaixaTotvs = dataBaixaStr;
+        }
+      });
+
+      if (db) {
+        db.ref("itensEstoque").set(itensEstoque);
+        db.ref("movimentacoes").set(movimentacoes);
+      }
+
+      localStorage.setItem("epi_itens_cache", JSON.stringify(itensEstoque));
+      localStorage.setItem("epi_movs_cache", JSON.stringify(movimentacoes));
+
+      renderizarPendencias();
+      renderizarEstoque();
+      atualizarBadges();
+      
+      const overlay = document.getElementById("bloqueio-diario-overlay");
+      if (overlay) overlay.style.display = "none";
+
+      mostrarToast("🎉 Baixa geral realizada com sucesso! Sistema liberado.");
+    }
+
+    function marcarComoBaixado(id) {
+      const mov = movimentacoes.find(m => m.id === id);
+      if (!mov) return;
+
+      const itemEstoque = itensEstoque.find(i => i.codigo === mov.codigo);
+      if (itemEstoque) {
+        itemEstoque.saldo_totvs -= Number(mov.quantidade);
+      }
+
+      const agora = new Date();
+      mov.status = "Baixado";
+      mov.dataBaixaTotvs = agora.toLocaleDateString("pt-BR") + " " + agora.toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'});
+      
+      renderizarPendencias();
+      renderizarEstoque();
+      atualizarBadges();
+      mostrarToast("🟢 Baixa confirmada com sucesso!");
+
+      if (db) {
+        db.ref("itensEstoque").set(itemEstoque);
+        db.ref("movimentacoes").set(movimentacoes);
+      }
+    }
+
+    function cancelarRetirada(id) {
+      const mov = movimentacoes.find(m => m.id === id);
+      if (!mov) return;
+
+      if (confirm(`Cancelar retirada de ${mov.quantidade}x "${mov.descricao}"?\n\nO saldo físico voltará imediatamente para a prateleira em todos os aparelhos.`)) {
+        const novasMovs = movimentacoes.filter(m => m.id !== id);
+        if (db) db.ref("movimentacoes").set(novasMovs);
+        mostrarToast("🗑️ Lançamento cancelado em tempo real!");
+      }
+    }
+
+    function editarRetirada(id) {
+      const mov = movimentacoes.find(m => m.id === id);
+      if (!mov) return;
+
+      const novoColab = prompt("Alterar Colaborador:", mov.colaborador);
+      if (novoColab === null) return;
+
+      const novaQtd = prompt("Alterar Quantidade retirada:", mov.quantidade);
+      if (novaQtd === null) return;
+
+      const qtdNum = parseInt(novaQtd, 10);
+      if (isNaN(qtdNum) || qtdNum <= 0) {
+        mostrarToast("⚠️ Quantidade inválida.");
+        return;
+      }
+
+      mov.colaborador = novoColab.trim() || mov.colaborador;
+      mov.quantidade = qtdNum;
+      
+      if (db) db.ref("movimentacoes").set(movimentacoes);
+      mostrarToast("✏️ Lançamento corrigido e sincronizado!");
+    }
+
+    function estornarBaixa(id) {
+      const mov = movimentacoes.find(m => m.id === id);
+      if (!mov) return;
+
+      if (confirm(`Desfazer baixa de "${mov.descricao}"?\n\nO item voltará para a fila de Pendentes.`)) {
+        const itemEstoque = itensEstoque.find(i => i.codigo === mov.codigo);
+        if (itemEstoque) {
+          itemEstoque.saldo_totvs += Number(mov.quantidade);
+          if (db) db.ref("itensEstoque").set(itemEstoque);
+        }
+
+        mov.status = "Pendente";
+        mov.dataBaixaTotvs = "";
+        
+        if (db) db.ref("movimentacoes").set(movimentacoes);
+        mostrarToast("↩️ Baixa desfeita em tempo real!");
+      }
+    }
+
+    function renderizarEstoque() {
+      const tbody = document.getElementById("tbody-estoque");
+      const filtro = document.getElementById("filtro-estoque").value.toLowerCase();
+      const filtrados = itensEstoque.filter(i => (i.codigo && i.codigo.toLowerCase().includes(filtro)) || (i.descricao && i.descricao.toLowerCase().includes(filtro)));
+      tbody.innerHTML = filtrados.map(item => {
+        const pendentes = movimentacoes.filter(m => m.codigo === item.codigo && m.status === 'Pendente').reduce((sum, m) => sum + Number(m.quantidade), 0);
+        const saldoFisico = getSaldoFisico(item.codigo);
+        let badge = '<span class="status-badge status-baixado">🟢 Regular</span>';
+        if (saldoFisico <= 0) badge = '<span class="status-badge status-critico">🔴 Zerado</span>';
+        else if (saldoFisico <= 5) badge = '<span class="status-badge status-pendente">🟡 Baixo</span>';
+        return `<tr>
+          <td><strong>${item.codigo}</strong></td>
+          <td>${item.descricao}</td>
+          <td>${item.un}</td>
+          <td>${item.saldo_totvs}</td>
+          <td>${pendentes}</td>
+          <td><strong>${saldoFisico}</strong></td>
+          <td>${badge}</td>
+          <td><button class="btn btn-sm" style="background:#e2e8f0; font-weight:600;" onclick="ajustarSaldoFisico('${item.codigo}')">✏️ Ajustar</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function ajustarSaldoFisico(codigo) {
+      const item = itensEstoque.find(i => i.codigo === codigo);
+      if (!item) return;
+
+      const saldoFisicoAtual = getSaldoFisico(codigo);
+      const novoFisicoStr = prompt(`🛠️ Ajuste de Inventário Físico\n\nItem: ${item.descricao}\nSaldo físico atual no sistema: ${saldoFisicoAtual} ${item.un}\n\nDigite a quantidade real contada na prateleira:`, saldoFisicoAtual);
+      if (novoFisicoStr === null) return;
+
+      const novoFisico = parseFloat(novoFisicoStr);
+      if (isNaN(novoFisico) || novoFisico < 0) {
+        alert("❌ Quantidade física inválida!");
+        return;
+      }
+
+      const motivo = prompt("Digite o motivo do ajuste (ex: Contagem física mensal, avaria, sobra):");
+      if (!motivo || !motivo.trim()) {
+        alert("❌ É obrigatório informar o motivo do ajuste!");
+        return;
+      }
+
+      const pendentes = movimentacoes.filter(m => m.codigo === codigo && m.status === 'Pendente').reduce((sum, m) => sum + Number(m.quantidade), 0);
+      const deltaCalculado = novoFisico - (item.saldo_totvs - pendentes);
+
+      ajustesInventario[codigo] = {
+        delta: deltaCalculado,
+        motivo: motivo.trim(),
+        data: new Date().toLocaleString("pt-BR")
+      };
+
+      if (db) db.ref("ajustesInventario").set(ajustesInventario);
+      mostrarToast(`✅ Saldo físico de ${item.descricao} ajustado para ${novoFisico} em todos os dispositivos!`);
+    }
+
+    function importarRelatorioTOTVS(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (typeof XLSX === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload = () => processarPlanilha(file);
+        document.head.appendChild(script);
+      } else {
+        processarPlanilha(file);
+      }
+    }
+
+    function processarPlanilha(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+          let headerRowIdx = 1;
+          for (let r = 0; r < 5; r++) {
+            if (rawData[r] && rawData[r].includes('Item') && rawData[r].includes('Descrição Item')) { headerRowIdx = r; break; }
+          }
+          const headers = rawData[headerRowIdx];
+          const colItem = headers.indexOf('Item');
+          const colDesc = headers.indexOf('Descrição Item');
+          const colUn = headers.indexOf('Un');
+          const colQtd = headers.indexOf('Qtd Liquida');
+          const colDep = headers.indexOf('Dep');
+          const novosItens = [];
+          for (let i = headerRowIdx + 1; i < rawData.length; i++) {
+            const row = rawData[i];
+            if (row && row[colItem] && row[colDesc]) {
+              novosItens.push({
+                codigo: String(row[colItem]).trim(),
+                descricao: String(row[colDesc]).trim(),
+                un: String(row[colUn] || 'UN').trim(),
+                saldo_totvs: parseFloat(row[colQtd]) || 0,
+                dep: String(row[colDep] || '070').trim()
+              });
+            }
+          }
+
+          if (novosItens.length > 0) {
+            itensEstoque = novosItens;
+            localStorage.setItem("epi_itens_cache", JSON.stringify(itensEstoque));
+            renderizarEstoque();
+
+            if (db) db.ref("itensEstoque").set(novosItens);
+            mostrarToast(`✅ Base atualizada com ${novosItens.length} itens!`);
+          }
+        } catch (err) { alert("❌ Erro ao ler planilha do TOTVS."); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function atualizarBadges() {
+      document.getElementById("badge-pendentes").innerText = movimentacoes.filter(m => m.status === 'Pendente').length;
+    }
+
+    function mostrarToast(msg) {
+      const t = document.getElementById("toast");
+      t.innerText = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 3000);
+    }
+
+    function getLinkAtual() {
+      if (!window.location.protocol.startsWith('http') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return localStorage.getItem("epi_link_producao") || "https://vitorlmanoeu1209-cmyk.github.io/controle-epis/";
+      }
+      return window.location.href.split('#')[0].split('?')[0];
+    }
+
+    function atualizarQRCodeNaTela() {
+      setTimeout(() => {
+        const qrImg = document.getElementById("qr-balcao-img");
+        if (qrImg) {
+          const url = getLinkAtual();
+          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}&color=1e3a8a`;
+          qrImg.style.display = "inline-block";
+          const linkElem = document.getElementById("qr-url-display");
+          if (linkElem) linkElem.innerText = url;
+        }
+      }, 300);
+    }
+
+    function configurarLinkQRCode() {
+      const linkAtual = getLinkAtual();
+      const novoLink = prompt("Digite o link do seu site:", linkAtual);
+      if (novoLink && novoLink.trim().startsWith("http")) {
+        localStorage.setItem("epi_link_producao", novoLink.trim());
+        atualizarQRCodeNaTela();
+        mostrarToast("🔗 Link do QR Code atualizado!");
+      } else if (novoLink) {
+        alert("❌ Digite um link válido começando com https://");
+      }
+    }
+
+    function imprimirQRCodeBalcao() {
+      const url = getLinkAtual();
+      const win = window.open('', '', 'width=700,height=750');
+      win.document.write(`
+        <html>
+          <head>
+            <title>QR Code - Retirada de EPIs</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 40px 20px; color: #1e293b; }
+              .placa { border: 4px solid #1e3a8a; border-radius: 16px; padding: 30px; max-width: 480px; margin: 0 auto; }
+              h1 { color: #1e3a8a; font-size: 24px; margin-bottom: 8px; }
+              h2 { color: #475569; font-size: 16px; font-weight: normal; margin-bottom: 24px; }
+              img { width: 260px; height: 260px; border: 2px solid #cbd5e1; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
+              .instrucao { font-size: 14px; font-weight: bold; color: #0f172a; margin-bottom: 6px; }
+              .link-text { font-size: 12px; color: #64748b; word-break: break-all; }
+            </style>
+          </head>
+          <body>
+            <div class="placa">
+              <h1>🛡️ RETIRADA DE EPIs</h1>
+              <h2>SESMT - Laticínios Porto Alegre</h2>
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(url)}&color=1e3a8a" alt="QR Code" />
+              <div class="instrucao">Aponte a câmera do celular para registrar a retirada</div>
+              <div class="link-text">${url}</div>
+            </div>
+          </body>
+        </html>
+      `);
+      win.document.close();
+      setTimeout(() => { win.print(); }, 400);
+    }
+
+    // RELATÓRIO DE IMPRESSÃO AGRUPADO POR COLABORADOR
+    function imprimirListaPendencias() {
+      const pendentes = movimentacoes.filter(m => m.status === "Pendente");
+      const win = window.open('', '', 'width=850,height=700');
+      const agora = new Date().toLocaleString("pt-BR");
+
+      const porColaborador = {};
+      pendentes.forEach(p => {
+        let nomeBruto = (p.colaborador || "Não identificado").trim();
+        let primeiroNome = nomeBruto.toUpperCase().split(' ')[0];
+        if (!porColaborador[primeiroNome]) {
+          porColaborador[primeiroNome] = { nomeExibicao: nomeBruto, itens: [] };
+        } else {
+          if (nomeBruto.length > porColaborador[primeiroNome].nomeExibicao.length) {
+            porColaborador[primeiroNome].nomeExibicao = nomeBruto;
+          }
+        }
+        porColaborador[primeiroNome].itens.push(p);
+      });
+
+      let blocosHtml = Object.keys(porColaborador).map(chave => {
+        const grupo = porColaborador[chave];
+        const itens = grupo.itens;
+        
+        let linhasItens = itens.map(i => `
+          <tr>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; font-family:monospace; font-weight:bold; width:110px;">${i.codigo}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1;">${i.descricao}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:center; width:50px; font-weight:bold;">${i.quantidade}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:center; width:110px; font-size:11px;">${i.data}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:center; width:70px;">[ &nbsp; ]</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div style="margin-bottom: 20px; page-break-inside: avoid;">
+            <div style="background: #1e3a8a; color: #fff; padding: 6px 10px; font-weight: bold; font-size: 13px; border-radius: 4px 4px 0 0;">
+              👤 Colaborador: ${grupo.nomeExibicao} (${itens.length} itens)
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">Código</th>
+                  <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: left;">Descrição do EPI</th>
+                  <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">Qtd</th>
+                  <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">Data/Hora</th>
+                  <th style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">Baixado TOTVS</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasItens}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      if (pendentes.length === 0) {
+        blocosHtml = `<div style="text-align:center; padding:30px; color:#64748b;">Nenhuma saída pendente de baixa no momento.</div>`;
+      }
+
+      win.document.write(`
+        <html>
+          <head>
+            <title>Relatório de Saídas Pendentes por Colaborador</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; color: #0f172a; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px; }
+              h2 { color: #1e3a8a; margin: 0; font-size: 16px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <h2>📋 RELATÓRIO DE PENDÊNCIAS POR COLABORADOR (TOTVS)</h2>
+                <span style="font-size:11px; color:#64748b;">SESMT - Controle de Estoque de EPIs</span>
+              </div>
+              <div style="font-size:11px; text-align:right;">
+                <b>Data de Emissão:</b> ${agora}<br/>
+                <b>Total Pendente:</b> ${pendentes.length} itens
+              </div>
+            </div>
+            ${blocosHtml}
+          </body>
+        </html>
+      `);
+      win.document.close();
+      setTimeout(() => { win.print(); }, 400);
+    }
+
+    function imprimirInventarioEstoque() {
+      const win = window.open('', '', 'width=850,height=700');
+      const agora = new Date().toLocaleString("pt-BR");
+
+      let linhasHtml = itensEstoque.map(item => {
+        const pendentes = movimentacoes.filter(m => m.codigo === item.codigo && m.status === 'Pendente').reduce((sum, m) => sum + Number(m.quantidade), 0);
+        return `
+          <tr>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; font-weight:bold;">${item.codigo}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1;">${item.descricao}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:center;">${item.un}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:right;">${item.saldo_totvs}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:right; color:#b45309;">${pendentes}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; text-align:right; font-weight:bold;">${getSaldoFisico(item.codigo)}</td>
+            <td style="padding:6px 8px; border:1px solid #cbd5e1; width:70px;"></td>
+          </tr>
+        `;
+      }).join('');
+
+      win.document.write(`
+        <html>
+          <head>
+            <title>Inventário Físico de EPIs</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; color: #0f172a; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px; }
+              h2 { color: #1e3a8a; margin: 0; font-size: 18px; }
+              table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+              th { background: #f1f5f9; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <h2>📊 INVENTÁRIO FÍSICO DE EPIS (CONFERÊNCIA DE ESTOQUE)</h2>
+                <span style="font-size:12px; color:#64748b;">SESMT - Laticínios Porto Alegre</span>
+              </div>
+              <div style="font-size:12px; text-align:right;">
+                <b>Data de Emissão:</b> ${agora}<br/>
+                <b>Total de Itens Cadastrados:</b> ${itensEstoque.length}
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Descrição Item</th>
+                  <th style="text-align:center;">Un</th>
+                  <th style="text-align:right;">Saldo TOTVS</th>
+                  <th style="text-align:right;">Saídas Pendentes</th>
+                  <th style="text-align:right;">Saldo Físico Sistema</th>
+                  <th style="text-align:center;">Contagem Física</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasHtml}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `);
+      win.document.close();
+      setTimeout(() => { win.print(); }, 400);
+    }
+
+    window.addEventListener('load', atualizarQRCodeNaTela);
+  </script>
+</body>
+</html>
